@@ -9,6 +9,18 @@ inline void panic(const char* message)
 	exit(0);
 }
 
+inline bool bytesEqual(const Byte* lhs, const Byte* rhs, size_t len)
+{
+	if(lhs && rhs)
+	{
+		for(size_t i = 0; i < len; ++i)
+			if(lhs[i] != rhs[i])
+				return false;
+		return true;
+	}
+	return false;
+}
+
 struct Reader
 {
 	ByteArray data;
@@ -29,7 +41,7 @@ struct Reader
 		return 0;
 	}
 
-	void ReadBytes(size_t byteCount, Byte* dest, bool littleEndian = true)
+	void _ReadBytes(size_t byteCount, Byte* dest, bool littleEndian = true)
 	{
 		if(pos + byteCount < data.size())
 		{
@@ -37,30 +49,34 @@ struct Reader
 			{
 				if(littleEndian)
 				{
-					dest[0] = data[pos++];
-					dest[1] = data[pos++];
-					dest[2] = data[pos++];
-					dest[3] = data[pos++];
+					for(size_t i = 0; i < byteCount; ++i)
+						dest[i] = data[pos++];
 				}
 				else
 				{
-					dest[3] = data[pos++];
-					dest[2] = data[pos++];
-					dest[1] = data[pos++];
-					dest[0] = data[pos++];
+					for(size_t i = 0; i < byteCount; ++i)
+						dest[byteCount - i - 1] = data[pos++];
 				}
 			}
 			else
 			{
-				pos += 4;	
+				pos += byteCount;	
 			}	
 		}
+	}
+
+	ByteArray ReadBytes(size_t bytes, bool littleEndian = true)
+	{
+		ByteArray array;
+		array.resize(bytes);
+		_ReadBytes(bytes, array.data(), littleEndian);
+		return array;
 	}
 
 	UInt32 ReadUInt()
 	{
 		UInt32 num = 0;
-		ReadBytes(sizeof(UInt32), (Byte*)&num, true);
+		_ReadBytes(sizeof(UInt32), (Byte*)&num, true);
 		return num;
 	}
 
@@ -68,14 +84,14 @@ struct Reader
 	{
 		size_t num = 0;
 		static_assert(sizeof(size_t) == 4, "size check");
-		ReadBytes(sizeof(size_t), (Byte*)&num, true);
+		_ReadBytes(sizeof(size_t), (Byte*)&num, true);
 		return num;
 	}
 
 	UInt64 ReadLuaInteger()
 	{
 		UInt64 num = 0;
-		ReadBytes(sizeof(UInt64), (Byte*)&num, true);
+		_ReadBytes(sizeof(UInt64), (Byte*)&num, true);
 		return num;
 	}
 
@@ -83,13 +99,13 @@ struct Reader
 	{
 		UInt64 num = 0;
 		static_assert(sizeof(UInt64) == sizeof(double), "size check");
-		ReadBytes(sizeof(UInt64), (Byte*)&num, true);
+		_ReadBytes(sizeof(UInt64), (Byte*)&num, true);
 		double dnum = 0.0;
 		memcpy(&dnum, &num, sizeof(double));
 		return dnum;
 	}
 
-	std::string ReadString()
+	String ReadString()
 	{
 		size_t size = ReadByte();
 		if(size == 0)
@@ -102,26 +118,196 @@ struct Reader
 		}
 		--size;
 
-		std::string bytes;
+		String bytes;
 		bytes.resize(size);
-		ReadBytes(size, const_cast<Byte*>(bytes.data()), true);
+		_ReadBytes(size, const_cast<Byte*>((const Byte*)bytes.data()), true);
 		return bytes;
+	}
+
+	std::vector<UInt32> ReadCode()
+	{
+		UInt32 count = ReadUInt();
+		std::vector<UInt32> code;
+		code.resize(count);
+		for(UInt32 i = 0; i < count; ++i)
+		{
+			code[i] = ReadUInt();
+		}
+		return code;
+	}
+
+	std::vector<Constant> ReadConstants()
+	{
+		UInt32 count = ReadUInt();
+		std::vector<Constant> constants;
+		constants.resize(count);
+		for(UInt32 i = 0; i < count; ++i)
+		{
+			constants[i] = ReadConstant();
+		}
+		return constants;
+	}
+
+	Constant ReadConstant()
+	{
+		Byte tag = ReadByte();
+
+		Constant constant;
+		constant.tag = tag;
+		switch(tag)
+		{
+			case TAG_NIL:
+				break;
+			case TAG_BOOLEAN:
+				constant.boolean = ReadByte() != 0;
+				break;
+			case TAG_INTEGER:
+				constant.luaInteger = ReadLuaInteger();
+				break;
+			case TAG_NUMBER:
+				constant.luaNum = ReadLuaNumber();
+				break;
+			case TAG_SHORT_STR:
+			case TAG_LONG_STR:
+				constant.str = ReadString();
+				break;
+		}
+		return constant;
+	}
+
+	std::vector<Upvalue> ReadUpvalues()
+	{
+		UInt32 count = ReadUInt();
+		std::vector<Upvalue> upvalues;
+		upvalues.resize(count);
+		for(UInt32 i = 0; i < count; ++i)
+		{
+			upvalues[i].Instack = ReadByte();
+			upvalues[i].Idx = ReadByte();
+		}
+		return upvalues;
+	}
+
+	std::vector<Prototype*> ReadProtos(const String& parentSource)
+	{
+		UInt32 count = ReadUInt();
+		std::vector<Prototype*> protos;
+		protos.resize(count);
+		for(UInt32 i = 0; i < count; ++i)
+		{
+			protos[i] = ReadProtoType(parentSource);
+		}
+		return protos;
+	}
+
+	std::vector<UInt32> ReadLineInfo()
+	{
+		UInt32 count = ReadUInt();
+		std::vector<UInt32> lineInfos;
+		lineInfos.resize(count);
+		for(UInt32 i = 0; i < count; ++i)
+		{
+			lineInfos[i] = ReadUInt();
+		}
+		return lineInfos;
+	}
+
+	std::vector<LocVar> ReadLocVars()
+	{
+		UInt32 count = ReadUInt();
+		std::vector<LocVar> locVars;
+		locVars.resize(count);
+		for(UInt32 i = 0; i < count; ++i)
+		{
+			locVars[i] .VarName = ReadString();
+			locVars[i].StartPC = ReadUInt();
+			locVars[i].EndPC = ReadUInt();
+		}
+		return locVars;
+	}
+
+	std::vector<String> ReadUpvalueNames()
+	{
+		UInt32 count = ReadUInt();
+		std::vector<String> names;
+		names.resize(count);
+		for(UInt32 i = 0; i < count; ++i)
+		{
+			names[i] = ReadString();
+		}
+		return names;
 	}
 
 	void CheckHeader()
 	{
-		if(ReadUInt() != BinaryChunk::LUA_SIGNATURE)
+		if(!bytesEqual(ReadBytes(4).data(), LUA_SIGNATURE, 4))
 		{
 			panic("not a precompiled chunk!");
 		}
-		if(ReadByte() != BinaryChunk::LUAC_VERSION)
+		else if(ReadByte() != LUAC_VERSION)
 		{
 			panic("version mismatch!");
 		}
-		if(ReadByte() != BinaryChunk::LUAC_FORMAT)
+		else if(ReadByte() != LUAC_FORMAT)
 		{
 			panic("format mismatch");
 		}
+		else if(!bytesEqual(ReadBytes(6).data(), LUAC_DATA, 6))
+		{
+			panic("corrupted!");
+		}
+		else if(ReadByte() != CINT_SIZE)
+		{
+			panic("int size mismatch");
+		}
+		else if(ReadByte() != CSIZE_SIZE)
+		{
+			panic("size_t size mismatch");
+		}
+		else if(ReadByte() != INSTRUCTION_SIZE)
+		{
+			panic("instruction size mismatch");
+		}
+		else if(ReadByte() != LUA_INTERGER_SIZE)
+		{
+			panic("lua_integer mismatch");
+		}
+		else if(ReadByte() != LUA_NUMBER_SIZE)
+		{
+			panic("lua_number mismatch");
+		}
+		else if(ReadLuaInteger() != LUAC_INT)
+		{
+			panic("endianness mismatch");
+		}
+		else if(ReadLuaNumber() != LUAC_NUM)
+		{
+			panic("float format mismatch");
+		}
+	}
+
+	Prototype* ReadProtoType(const String& parentSource)
+	{
+		String source = ReadString();
+		if(source == "")
+		{
+			source = parentSource;
+		}
+		Prototype* proto = new Prototype();
+		proto->Source = source;
+		proto->LineDefined = ReadUInt();
+		proto->LastLineDefined = ReadUInt();
+		proto->NumParams = ReadByte();
+		proto->IsVararg = ReadByte();
+		proto->MaxStackSize = ReadByte();
+		proto->Code = ReadCode();
+		proto->Constants = ReadConstants();
+		proto->Upvalues = ReadUpvalues();
+		proto->Protos = ReadProtos(source);
+		proto->LineInfo = ReadLineInfo();
+		proto->LocVars = ReadLocVars();
+		proto->UpvalueNames = ReadUpvalueNames();
+		return proto;		
 	}
 };
 
@@ -129,5 +315,7 @@ Prototype* Undump(const ByteArray& data)
 {
 	Reader reader {data};
 	reader.CheckHeader();
-	return nullptr;
+	// skip Upvalue count
+	reader.ReadByte();
+	return reader.ReadProtoType("");
 }
