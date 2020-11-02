@@ -23,5 +23,6 @@ int main()
 		f = NULL;
 
 		Prototype* type = Undump(buffer);
+		type->List();
 	}
 }
