@@ -1,62 +1,7 @@
 #pragma once
-#include <string>
+#include "../type.h"
+#include "../vm/opcodes.h"
 #include <vector>
-
-using Byte = unsigned char;
-static_assert(sizeof(Byte) == 1, "size check");
-using UInt32 = unsigned int;
-static_assert(sizeof(UInt32) == 4, "size check");
-using UInt64 = unsigned long long int;
-static_assert(sizeof(UInt64) == 8, "size check");
-using String = std::string;
-
-#include <stdarg.h>
-
-struct Format
-{
-	static String FormatString(const char* pszFormat, ...)
-	{
-	#if defined(_MSC_VER)
-	#	define SNPRINTF sprintf_s
-	#	define VSNPRINTF vsnprintf
-	#	pragma warning(disable : 4996)
-	#else
-	#	define SNPRINTF snprintf
-	#	define VSNPRINTF vsnprintf
-	#endif
-		String format;
-
-		va_list list;
-		va_start(list, pszFormat);
-
-		char szBuffer[2048]; szBuffer[0] = '\0';
-
-		int requireBufferSize = VSNPRINTF(szBuffer, sizeof(szBuffer) - 1, pszFormat, list);
-		if (requireBufferSize > sizeof(szBuffer) - 1)
-		{
-			char *szAllocBuffer = new char[requireBufferSize + 1];
-			memset(szAllocBuffer, 0, requireBufferSize + 1);
-			VSNPRINTF(szAllocBuffer, requireBufferSize/* + 1 - 1 */, pszFormat, list);
-			format = szAllocBuffer;
-			delete[] szAllocBuffer;
-		}
-		else
-		{
-			format = szBuffer;
-		}
-
-		va_end(list);
-		return format;
-
-	#undef SNPRINTF
-	#undef VSNPRINTF
-	}
-
-	static inline String FromBool(bool b) { return b ? "true" : "false"; }
-	static inline String FromFloat64(double d) { return std::to_string(d); }
-	static inline String FromUInt64(UInt64 i) { return std::to_string(i); }
-	static inline String FromStirng(const String& s) { return s; };
-};
 
 struct BinaryChunk
 {
@@ -161,6 +106,64 @@ struct Prototype
 		Protos.size());
 	}
 
+	void PrintOperands(const Instruction& i) const
+	{
+		switch(i.OpMode())
+		{
+			case iABC:
+			{
+				auto abc = i.ABC();
+				int a = std::get<0>(abc);
+				int b = std::get<1>(abc);
+				int c = std::get<2>(abc);
+				printf("%d", a);
+				if(i.BMode() != OpArgN)
+				{
+					if(b > 0xFF)
+						printf(" %d", -1 - (b & 0xFF));
+					else
+						printf(" %d", b);
+				}
+				if(i.CMode() != OpArgN)
+				{
+					if(c > 0xFF)
+						printf(" %d", -1 - (c & 0xFF));
+					else
+						printf(" %d", c);
+				}
+				break;
+			}
+			case iABx:
+			{
+				auto abx = i.ABx();
+				int a = std::get<0>(abx);
+				int bx = std::get<1>(abx);
+				printf("%d", a);
+				if(i.BMode() == OpArgK)
+					printf(" %d", -1 - bx);
+				else if(i.BMode() == OpArgU)
+					printf(" %d", bx);
+				break;
+			}
+			case iAsBx:
+			{
+				auto asbx = i.ABsBx();
+				int a = std::get<0>(asbx);
+				int sbx = std::get<1>(asbx);
+				printf("%d %d", a, sbx);
+				break;
+			}
+			case iAx:
+			{
+				int ax = i.Ax();
+				printf("%d", -1 - ax);
+				break;
+			}
+			default:
+				break;
+		}
+	}
+
 	void PrintCode() const
 	{
 		for(size_t pc = 0; pc < Code.size(); ++pc)
@@ -169,7 +172,10 @@ struct Prototype
 			String line = "-";
 			if(LineInfo.size() > 0)
 				line = Format::FormatString("%d", LineInfo[pc]);
-			printf("\t%d\t[%s]\t0x%08X\n", pc + 1, line.c_str(), c);
+			Instruction i{c};
+			printf("\t%d\t[%s]\t%s \t", pc + 1, line.c_str(), i.OpName().c_str());
+			PrintOperands(i);
+			printf("\n");
 		}
 	}
 
