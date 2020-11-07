@@ -1,6 +1,6 @@
 #pragma once
-#include "../type.h"
-#include "../vm/opcodes.h"
+#include "type.h"
+#include "vm/opcodes.h"
 #include <vector>
 
 struct BinaryChunk
@@ -98,7 +98,7 @@ struct Prototype
 		String varargFlag = "";
 		if(IsVararg)
 			varargFlag += "+";
-		printf("\n$s <%s:%d,%d> (%d instructions)\n", funcType.c_str(), Source,
+		printf("\n%s <%s:%d,%d> (%d instructions)\n", funcType.c_str(), Source.c_str(),
 			LineDefined, LastLineDefined, Code.size());
 		printf("%d%s parmas, %d slots, %d upvalues, ", NumParams, varargFlag.c_str(),
 			MaxStackSize, UpvalueNames.size());

@@ -1,5 +1,5 @@
 #pragma once
-#include "../type.h"
+#include "type.h"
 #include <tuple>
 
 enum OpMode
@@ -180,7 +180,7 @@ struct Instruction
 		);
 	}
 
-	static constexpr int MAXARG_BX = 1 << 18 - 1;
+	static constexpr int MAXARG_BX = (1 << 18) - 1;
 	static constexpr int MAXARG_sBX = MAXARG_BX >> 1;
 
 	inline std::tuple<int, int> /* a, sbx */ ABsBx() const

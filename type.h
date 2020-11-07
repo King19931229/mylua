@@ -30,7 +30,7 @@ struct Format
 
 		char szBuffer[2048]; szBuffer[0] = '\0';
 
-		int requireBufferSize = VSNPRINTF(szBuffer, sizeof(szBuffer) - 1, pszFormat, list);
+		size_t requireBufferSize = VSNPRINTF(szBuffer, sizeof(szBuffer) - 1, pszFormat, list);
 		if (requireBufferSize > sizeof(szBuffer) - 1)
 		{
 			char *szAllocBuffer = new char[requireBufferSize + 1];
