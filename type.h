@@ -17,6 +17,13 @@ inline void panic(const char* message)
 	exit(0);
 }
 
+#define panic_cond(COND, message)\
+do\
+{\
+	if(!(COND))\
+		panic(message);\
+}while(0);
+
 struct Format
 {
 	static String FormatString(const char* pszFormat, ...)
@@ -60,5 +67,5 @@ struct Format
 	static inline String FromBool(bool b) { return b ? "true" : "false"; }
 	static inline String FromFloat64(double d) { return std::to_string(d); }
 	static inline String FromUInt64(UInt64 i) { return std::to_string(i); }
-	static inline String FromStirng(const String& s) { return s; };
+	static inline String FromString(const String& s) { return s; };
 };

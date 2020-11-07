@@ -33,7 +33,7 @@ struct LuaState
 		stack.Set(toIdx, val);
 	}
 
-	void Push(int idx)
+	void PushValue(int idx)
 	{
 		LuaValue val = stack.Get(idx);
 		stack.Push(val);
@@ -62,9 +62,29 @@ struct LuaState
 		size_t t = stack.top - 1;
 		size_t p = idx - 1;
 		size_t m = (n >= 0) ? (t - n) : (p - n - 1);
-		stack.Reverse(p, m);
-		stack.Reverse(m + 1, t);
-		stack.Reverse(p, t);
+		stack._Reverse(p, m);
+		stack._Reverse(m + 1, t);
+		stack._Reverse(p, t);
+	}
+
+	void SetTop(int idx)
+	{
+		size_t newTop = stack.AbsIndex(idx);
+		if(newTop < 0)
+		{
+			panic("stack underflow");
+		}
+		int n = (int)stack.top - (int)newTop;
+		if(n > 0)
+		{
+			for(int i = 0; i < n; ++i)
+				stack.Pop();
+		}
+		else if(n < 0)
+		{
+			for(int i = 0; i > n; --i)
+				stack.Push(LuaValue::Nil);
+		}
 	}
 
 	// Pop the top of the stack and insert it into the specified position
@@ -83,10 +103,136 @@ struct LuaState
 	void PushBoolean(bool b) { stack.Push(LuaValue(b)); }
 	void PushInteger(UInt64 n) { stack.Push(LuaValue(n)); }
 	void PushNumber(double n) { stack.Push(LuaValue(n)); }
-	void PushNil(const String& str){ stack.Push(LuaValue(str)); }
+	void PushString(const String& str){ stack.Push(LuaValue(str)); }
+
+	static String TypeName(LuaType tp)
+	{
+		switch (tp)
+		{
+			case LUA_TNONE: return "no value";
+			case LUA_TNIL: return "nil";
+			case LUA_TBOOLEAN: return "boolean";
+			case LUA_TNUMBER: return "number";
+			case LUA_TSTRING: return "string";
+			case LUA_TTABLE: return "table";
+			case LUA_TFUNCTION: return "function";	
+			case LUA_TTHREAD: return "thread";
+			case LUA_TLIGHTUSERDATA:
+			case LUA_TUSERDATA:
+			default: return "userdata";
+		}
+	}
+
+	LuaType Type(int idx) const
+	{
+		if(stack.IsValid(idx))
+		{
+			LuaValue value = stack.Get(idx);
+			return value.tag;
+		}
+		return LUA_TNONE;
+	}
+
+	bool IsNone(int idx) const { return Type(idx) == LUA_TNONE; }
+	bool IsNil(int idx) const { return Type(idx) == LUA_TNIL; }
+	bool IsNoneOrNil(int idx) const { return Type(idx) <= LUA_TNIL; }
+	bool IsBoolean(int idx) const { return Type(idx) == LUA_TBOOLEAN; }
+	bool IsString(int idx) const
+	{
+		LuaType t = Type(idx);
+		return t == LUA_TSTRING || t == LUA_TNUMBER;
+	}
+
+	static bool ConvertToBoolean(const LuaValue& value)
+	{
+		switch (value.tag)
+		{
+			case LUA_TNIL: return false;
+			case LUA_TBOOLEAN: return value.boolean;
+			default: return true;
+		}
+	}
+
+	bool ToBoolean(int idx) const
+	{
+		LuaValue value = stack.Get(idx);
+		return ConvertToBoolean(value);
+	}
+
+	std::tuple<double, bool> ToNumberX(int idx) const
+	{
+		LuaValue value = stack.Get(idx);
+		switch (value.tag)
+		{
+			case LUA_TNUMBER:
+			{
+				if(value.isfloat)
+					return std::make_tuple(value.number, true);
+				else
+					return std::make_tuple((double)value.integer, true);
+			}		
+		default:
+			return std::make_tuple(0, false);
+		}
+	}
+
+	double ToNumber(int idx) const
+	{
+		auto pair = ToNumberX(idx);
+		return std::get<0>(pair);
+	}
+
+	bool IsNumber(int idx) const
+	{
+		auto pair = ToNumberX(idx);
+		return std::get<1>(pair);
+	}
+
+	std::tuple<String, bool> ToStringX(int idx)
+	{
+		LuaValue val = stack.Get(idx);
+		switch(val.tag)
+		{
+			case LUA_TSTRING: return std::make_tuple(val.str, true);
+			case LUA_TNUMBER:
+			{
+				std::tuple<String, bool> ret;
+				if(val.isfloat)
+					ret = std::make_tuple(std::to_string(val.number), true);
+				else
+					ret = std::make_tuple(std::to_string(val.integer), true);
+				stack.Set(idx, LuaValue(std::get<0>(ret)));
+				return ret;
+			}
+			default: return std::make_tuple("", false);
+		}
+	}
+
+	String ToString(int idx)
+	{
+		auto pair = ToStringX(idx);
+		return std::get<0>(pair);
+	}
 };
 
-inline LuaState New()
+inline LuaState NewLuaState()
 {
 	return LuaState{NewLuaStack(20)};
+}
+
+inline void PrintStack(LuaState& state)
+{
+	int top = state.GetTop();
+	for(int i = 1; i <= top; ++i)
+	{
+		LuaType t = state.Type(i);
+		switch(t)
+		{
+			case LUA_TBOOLEAN: printf("[%s]", Format::FromBool(state.ToBoolean(i)).c_str()); break;
+			case LUA_TNUMBER: printf("[%s]", Format::FromFloat64(state.ToNumber(i)).c_str()); break;
+			case LUA_TSTRING: printf("[%s]", state.ToString(i).c_str()); break;
+			default: printf("[%s]",  state.TypeName(t).c_str()); break;
+		}
+	}
+	puts("");
 }

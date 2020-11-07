@@ -4,7 +4,7 @@
 
 struct LuaValue
 {
-	LuaTypeTag tag;
+	LuaType tag;
 	union
 	{
 		bool boolean;
@@ -14,11 +14,19 @@ struct LuaValue
 	bool isfloat;
 	std::string str;
 
+	const static LuaValue NoValue;
 	const static LuaValue Nil;
 
 	LuaValue()
 	{
 		tag = LUA_TNONE;
+		integer = false;
+		isfloat = false;
+	}
+
+	LuaValue(LuaType _tag)
+	{
+		tag = _tag;
 		integer = false;
 		isfloat = false;
 	}

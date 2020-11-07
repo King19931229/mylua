@@ -35,6 +35,7 @@ struct LuaStack
 		if(top < 1)
 		{
 			panic("stack underflow!");
+			return LuaValue::Nil;
 		}
 		else
 		{
@@ -47,11 +48,14 @@ struct LuaStack
 
 	size_t AbsIndex(int idx) const
 	{
-		assert(idx != 0);
+		panic_cond(idx != 0, "index out of bound");
 		if(idx >= 0)
 			return idx;
 		else
-			return idx + (int)top + 1;		
+		{
+			panic_cond(top + idx >= 0, "index out of bound");
+			return idx + (int)top + 1;
+		}
 	}
 
 	bool IsValid(int idx) const
@@ -60,7 +64,7 @@ struct LuaStack
 		return absIdx > 0 && absIdx <= top;
 	}
 
-	LuaValue Get(int idx)
+	LuaValue Get(int idx) const
 	{
 		size_t absIdx = AbsIndex(idx);
 		if(absIdx > 0 && absIdx <= top)
@@ -87,7 +91,7 @@ struct LuaStack
 	}
 
 	// from and to is internal index
-	void Reverse(size_t from, size_t to)
+	void _Reverse(size_t from, size_t to)
 	{
 		while(from < to)
 		{
