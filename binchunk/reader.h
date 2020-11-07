@@ -3,12 +3,6 @@
 
 using ByteArray = std::vector<Byte>;
 
-inline void panic(const char* message)
-{
-	printf("%s\n", message);
-	exit(0);
-}
-
 inline bool bytesEqual(const Byte* lhs, const Byte* rhs, size_t len)
 {
 	if(lhs && rhs)

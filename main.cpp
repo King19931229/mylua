@@ -4,6 +4,7 @@
 #include <cstring>
 #include "binchunk/binary_chunk.h"
 #include "binchunk/reader.h"
+#include "state/lua_state.h"
 
 int main()
 {

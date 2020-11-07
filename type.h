@@ -1,5 +1,7 @@
 #pragma once
 #include <string>
+#include <cstring>
+#include <stdarg.h>
 
 using Byte = unsigned char;
 static_assert(sizeof(Byte) == 1, "size check");
@@ -9,7 +11,11 @@ using UInt64 = unsigned long long int;
 static_assert(sizeof(UInt64) == 8, "size check");
 using String = std::string;
 
-#include <stdarg.h>
+inline void panic(const char* message)
+{
+	printf("%s\n", message);
+	exit(0);
+}
 
 struct Format
 {

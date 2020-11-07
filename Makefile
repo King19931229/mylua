@@ -9,7 +9,7 @@ OBJ_FILES = $(patsubst $(SRC_DIR)/%.cpp,$(OBJ_DIR)/%.o,$(SRC_FILES))
 DEFS = -D _DEBUG -D UNICODE -D _UNICODE
 CXX = g++
 # https://nathandumont.com/blog/automatically-detect-changes-in-header-files-in-a
-CXX_FLAGS = -std=c++11 -ggdb -Wall -O0 $(DEFS) -I$(INC_DIR) -MD
+CXX_FLAGS = -std=c++11 -ggdb -Wall -Werror -O0 $(DEFS) -I$(INC_DIR) -MD
 
 main.exe: $(OBJ_FILES)
 	$(CXX) $(LD_FLAGS) -o $@ $^
