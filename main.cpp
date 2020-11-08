@@ -6,9 +6,17 @@
 #include "binchunk/reader.h"
 #include "state/lua_state.h"
 #include "number/parser.h"
+#include "state/api_arith.h"
 
 int main()
 {
+	float a = 1.0 / 0.0;
+	float b = 1.0 / 0.0;
+	printf("%d %d\n", a <= b, !(b < a));
+	a = 0.0 / 0.0;
+	b = 0.0 / 0.0;
+	printf("%d %d\n", a <= b, !(b < a));
+	/*
 	{
 		std::tuple<Float64, bool> pair;
 		pair = ParseFloat("333.33232");
@@ -33,6 +41,7 @@ int main()
 		pair = ParseInteger("3332312");
 		printf("%I64d %d\n", std::get<0>(pair), std::get<1>(pair));
 	}
+	*/
 #if 0
 	LuaState state = NewLuaState();
 	state.PushBoolean(true); PrintStack(state);

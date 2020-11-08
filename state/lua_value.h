@@ -17,6 +17,27 @@ struct LuaValue
 	const static LuaValue NoValue;
 	const static LuaValue Nil;
 
+	inline bool IsInt64() const { return tag == LUA_TNUMBER && !isfloat; }
+	inline bool IsFloat64() const { return tag == LUA_TNUMBER && isfloat; }
+	inline bool IsBool() const { return tag == LUA_TBOOLEAN; }
+	inline bool IsString() const { return tag == LUA_TSTRING; }
+
+	bool operator==(const LuaValue& rhs) const
+	{
+		if(tag != rhs.tag)
+			return false;
+		// number comprare and integer compare is the same result
+		if(tag == LUA_TNUMBER && (number != rhs.number || isfloat != rhs.isfloat))
+			return false;
+		if(tag == LUA_TBOOLEAN && boolean != rhs.boolean)
+			return false;
+		if(tag == LUA_TSTRING && str != rhs.str)
+			return false;
+		return true;
+	}
+
+	bool operator!=(const LuaValue& rhs) const { return !(*this == rhs); }
+
 	LuaValue()
 	{
 		tag = LUA_TNONE;

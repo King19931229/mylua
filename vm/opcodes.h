@@ -99,59 +99,7 @@ struct OpCode
 	String name;
 };
 
-static OpCode opcodes[] =
-{
-#define MAKE_OP_CODE(T, A, B, C, mode, name) OpCode{T, A, B, C, mode, #name}
-	MAKE_OP_CODE(0, 1, OpArgR, OpArgN, iABC, MOVE)
-	,MAKE_OP_CODE(0, 1, OpArgK, OpArgN, iABx, LOADK)
-	,MAKE_OP_CODE(0, 1, OpArgN, OpArgN, iABx, LOADKX)
-	,MAKE_OP_CODE(0, 1, OpArgU, OpArgU, iABC, LOADBOOL)
-	,MAKE_OP_CODE(0, 1, OpArgU, OpArgN, iABC, LOADNIL)
-	,MAKE_OP_CODE(0, 1, OpArgU, OpArgN, iABC, GETUPVAL)
-	,MAKE_OP_CODE(0, 1, OpArgU, OpArgK, iABC, GETTABUP)
-	,MAKE_OP_CODE(0, 1, OpArgR, OpArgK, iABC, GETTABLE)
-	,MAKE_OP_CODE(0, 0, OpArgK, OpArgK, iABC, SETTABUP)
-	,MAKE_OP_CODE(0, 0, OpArgU, OpArgN, iABC, SETUPVAL)
-	,MAKE_OP_CODE(0, 0, OpArgK, OpArgK, iABC, SETTABLE)
-	,MAKE_OP_CODE(0, 1, OpArgU, OpArgU, iABC, NEWTABLE)
-	,MAKE_OP_CODE(0, 1, OpArgR, OpArgK, iABC, SELF)
-	,MAKE_OP_CODE(0, 1, OpArgK, OpArgK, iABC, ADD)
-	,MAKE_OP_CODE(0, 1, OpArgK, OpArgK, iABC, SUB)
-	,MAKE_OP_CODE(0, 1, OpArgK, OpArgK, iABC, MUL)
-	,MAKE_OP_CODE(0, 1, OpArgK, OpArgK, iABC, MOD)
-	,MAKE_OP_CODE(0, 1, OpArgK, OpArgK, iABC, POW)
-	,MAKE_OP_CODE(0, 1, OpArgK, OpArgK, iABC, DIV)
-	,MAKE_OP_CODE(0, 1, OpArgK, OpArgK, iABC, IDIV)
-	,MAKE_OP_CODE(0, 1, OpArgK, OpArgK, iABC, BAND)
-	,MAKE_OP_CODE(0, 1, OpArgK, OpArgK, iABC, BOR)
-	,MAKE_OP_CODE(0, 1, OpArgK, OpArgK, iABC, BXOR)
-	,MAKE_OP_CODE(0, 1, OpArgK, OpArgK, iABC, SHL)
-	,MAKE_OP_CODE(0, 1, OpArgK, OpArgK, iABC, SHR)
-	,MAKE_OP_CODE(0, 1, OpArgR, OpArgN, iABC, UNM)
-	,MAKE_OP_CODE(0, 1, OpArgR, OpArgN, iABC, BNOT)
-	,MAKE_OP_CODE(0, 1, OpArgR, OpArgN, iABC, NOT)
-	,MAKE_OP_CODE(0, 1, OpArgR, OpArgN, iABC, LEN)
-	,MAKE_OP_CODE(0, 1, OpArgR, OpArgR, iABC, CONCAT)
-	,MAKE_OP_CODE(0, 0, OpArgR, OpArgN, iAsBx, JMP)
-	,MAKE_OP_CODE(1, 0, OpArgK, OpArgK, iABC, EQ)
-	,MAKE_OP_CODE(1, 0, OpArgK, OpArgK, iABC, LT)
-	,MAKE_OP_CODE(1, 0, OpArgK, OpArgK, iABC, LE)
-	,MAKE_OP_CODE(1, 0, OpArgN, OpArgU, iABC, TEST)
-	,MAKE_OP_CODE(1, 1, OpArgR, OpArgU, iABC, TESTSET)
-	,MAKE_OP_CODE(0, 1, OpArgU, OpArgU, iABC, CALL)
-	,MAKE_OP_CODE(0, 1, OpArgU, OpArgU, iABC, TAILCALL)
-	,MAKE_OP_CODE(0, 0, OpArgU, OpArgN, iABC, RETURN)
-	,MAKE_OP_CODE(0, 1, OpArgR, OpArgN, iAsBx, FORLOOP)
-	,MAKE_OP_CODE(0, 1, OpArgR, OpArgN, iAsBx, FORPREP)
-	,MAKE_OP_CODE(0, 0, OpArgN, OpArgU, iABC, TFORCALL)
-	,MAKE_OP_CODE(0, 1, OpArgR, OpArgN, iAsBx, TFORLOOP)
-	,MAKE_OP_CODE(0, 0, OpArgU, OpArgU, iABC, SETLIST)
-	,MAKE_OP_CODE(0, 1, OpArgU, OpArgN, iABx, CLOSURE)
-	,MAKE_OP_CODE(0, 1, OpArgU, OpArgN, iABC, VARARG)
-	,MAKE_OP_CODE(0, 0, OpArgU, OpArgU, iAx, EXTRAARG)
-#undef MAKE_OP_CODE
-};
-
+extern const OpCode opcodes[47];
 static_assert(sizeof(opcodes) / sizeof(OpCode) == OP_EXTRAARG + 1, "size check");
 
 struct Instruction

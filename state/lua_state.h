@@ -1,7 +1,8 @@
 #pragma once
 #include "lua_stack.h"
+#include "api_arith.h"
 
-enum
+enum ArithOp
 {
 	LUA_OPADD, // +
 	LUA_OPSUB, // -
@@ -19,7 +20,7 @@ enum
 	LUA_OPBNOT, // ~
 };
 
-enum
+enum CompareOp
 {
 	LUA_OPEQ,
 	LUA_OPLT,
@@ -228,6 +229,22 @@ struct LuaState
 	{
 		auto pair = ToStringX(idx);
 		return std::get<0>(pair);
+	}
+
+	void Arith(ArithOp op)
+	{
+		LuaValue b = stack.Pop();
+		LuaValue a;
+		if(op != LUA_OPUNM && op != LUA_OPBNOT)
+			a = stack.Pop();
+		else
+			a = b;
+		Operator operaotr = operators[op];
+		LuaValue res = _Arith(a, b, operaotr);
+		if(res != LuaValue::Nil)
+			stack.Push(res);
+		else
+			panic("arithmetic error!");
 	}
 };
 
