@@ -82,20 +82,20 @@ struct Reader
 		return num;
 	}
 
-	UInt64 ReadLuaInteger()
+	Int64 ReadLuaInteger()
 	{
-		UInt64 num = 0;
-		_ReadBytes(sizeof(UInt64), (Byte*)&num, true);
+		Int64 num = 0;
+		_ReadBytes(sizeof(Int64), (Byte*)&num, true);
 		return num;
 	}
 
-	double ReadLuaNumber()
+	Float64 ReadLuaNumber()
 	{
-		UInt64 num = 0;
-		static_assert(sizeof(UInt64) == sizeof(double), "size check");
-		_ReadBytes(sizeof(UInt64), (Byte*)&num, true);
-		double dnum = 0.0;
-		memcpy(&dnum, &num, sizeof(double));
+		Int64 num = 0;
+		static_assert(sizeof(Int64) == sizeof(Float64), "size check");
+		_ReadBytes(sizeof(Int64), (Byte*)&num, true);
+		Float64 dnum = 0.0;
+		memcpy(&dnum, &num, sizeof(Float64));
 		return dnum;
 	}
 

@@ -1,6 +1,31 @@
 #pragma once
 #include "lua_stack.h"
 
+enum
+{
+	LUA_OPADD, // +
+	LUA_OPSUB, // -
+	LUA_OPMUL, // *
+	LUA_OPMOD, // %
+	LUA_OPPOW, // ^
+	LUA_OPDIV, // /
+	LUA_OPIDIV, // //
+	LUA_OPBAND, // &
+	LUA_OPBOR, // |
+	LUA_OPBXOR, // ~
+	LUA_OPSHL, // <<
+	LUA_OPSHR, // >>
+	LUA_OPUNM, // - (unary minus)
+	LUA_OPBNOT, // ~
+};
+
+enum
+{
+	LUA_OPEQ,
+	LUA_OPLT,
+	LUA_OPLE,
+};
+
 struct LuaState
 {
 	LuaStack stack;
@@ -101,8 +126,8 @@ struct LuaState
 
 	void PushNil() { stack.Push(LuaValue::Nil); }
 	void PushBoolean(bool b) { stack.Push(LuaValue(b)); }
-	void PushInteger(UInt64 n) { stack.Push(LuaValue(n)); }
-	void PushNumber(double n) { stack.Push(LuaValue(n)); }
+	void PushInteger(Int64 n) { stack.Push(LuaValue(n)); }
+	void PushNumber(Float64 n) { stack.Push(LuaValue(n)); }
 	void PushString(const String& str){ stack.Push(LuaValue(str)); }
 
 	static String TypeName(LuaType tp)
@@ -143,40 +168,19 @@ struct LuaState
 		return t == LUA_TSTRING || t == LUA_TNUMBER;
 	}
 
-	static bool ConvertToBoolean(const LuaValue& value)
-	{
-		switch (value.tag)
-		{
-			case LUA_TNIL: return false;
-			case LUA_TBOOLEAN: return value.boolean;
-			default: return true;
-		}
-	}
-
 	bool ToBoolean(int idx) const
 	{
 		LuaValue value = stack.Get(idx);
 		return ConvertToBoolean(value);
 	}
 
-	std::tuple<double, bool> ToNumberX(int idx) const
+	std::tuple<Float64, bool> ToNumberX(int idx) const
 	{
 		LuaValue value = stack.Get(idx);
-		switch (value.tag)
-		{
-			case LUA_TNUMBER:
-			{
-				if(value.isfloat)
-					return std::make_tuple(value.number, true);
-				else
-					return std::make_tuple((double)value.integer, true);
-			}		
-		default:
-			return std::make_tuple(0, false);
-		}
+		return ConvertToFloat(value);
 	}
 
-	double ToNumber(int idx) const
+	Float64 ToNumber(int idx) const
 	{
 		auto pair = ToNumberX(idx);
 		return std::get<0>(pair);
@@ -186,6 +190,18 @@ struct LuaState
 	{
 		auto pair = ToNumberX(idx);
 		return std::get<1>(pair);
+	}
+
+	std::tuple<Int64, bool> ToIntegerX(int idx) const
+	{
+		LuaValue value = stack.Get(idx);
+		return ConvertToInteger(value);
+	}
+
+	Int64 ToInteger(int idx) const
+	{
+		auto pair = ToIntegerX(idx);
+		return std::get<0>(pair);
 	}
 
 	std::tuple<String, bool> ToStringX(int idx)

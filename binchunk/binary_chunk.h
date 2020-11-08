@@ -16,8 +16,8 @@ struct BinaryChunk
 		Byte instructionSize;
 		Byte luaIntegerSize;
 		Byte luaNumberSize;
-		UInt64 luacInt;
-		double luacNum;
+		Int64 luacInt;
+		Float64 luacNum;
 	};
 
 	Head header;
@@ -35,8 +35,8 @@ constexpr static Byte CSIZE_SIZE = sizeof(size_t);
 constexpr static Byte INSTRUCTION_SIZE = 4;
 constexpr static Byte LUA_INTERGER_SIZE = 8;
 constexpr static Byte LUA_NUMBER_SIZE = 8;
-constexpr static UInt64 LUAC_INT = 0x5678;
-constexpr static double LUAC_NUM = 370.5;
+constexpr static Int64 LUAC_INT = 0x5678;
+constexpr static Float64 LUAC_NUM = 370.5;
 
 enum : Byte
 {
@@ -55,8 +55,8 @@ struct Constant
 	{
 		bool boolean;
 		Byte byte;
-		UInt64 luaInteger;
-		double luaNum;
+		Int64 luaInteger;
+		Float64 luaNum;
 	};
 	std::string str;
 };
@@ -190,7 +190,7 @@ struct Prototype
 			case TAG_NUMBER:
 				return Format::FromFloat64(k.luaNum);
 			case TAG_INTEGER:
-				return Format::FromUInt64(k.luaInteger);
+				return Format::FromInt64(k.luaInteger);
 			case TAG_SHORT_STR:
 			case TAG_LONG_STR:
 				return k.str;

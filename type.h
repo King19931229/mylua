@@ -7,8 +7,10 @@ using Byte = unsigned char;
 static_assert(sizeof(Byte) == 1, "size check");
 using UInt32 = unsigned int;
 static_assert(sizeof(UInt32) == 4, "size check");
+using Int64 = long long int;
 using UInt64 = unsigned long long int;
-static_assert(sizeof(UInt64) == 8, "size check");
+static_assert(sizeof(Int64) == 8, "size check");
+using Float64 = double;
 using String = std::string;
 
 inline void panic(const char* message)
@@ -65,7 +67,7 @@ struct Format
 	}
 
 	static inline String FromBool(bool b) { return b ? "true" : "false"; }
-	static inline String FromFloat64(double d) { return std::to_string(d); }
-	static inline String FromUInt64(UInt64 i) { return std::to_string(i); }
+	static inline String FromFloat64(Float64 d) { return std::to_string(d); }
+	static inline String FromInt64(Int64 i) { return std::to_string(i); }
 	static inline String FromString(const String& s) { return s; };
 };
