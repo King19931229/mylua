@@ -1,6 +1,7 @@
 #pragma once
 #include "lua_stack.h"
 #include "api_arith.h"
+#include "api_compare.h"
 
 enum ArithOp
 {
@@ -245,6 +246,53 @@ struct LuaState
 			stack.Push(res);
 		else
 			panic("arithmetic error!");
+	}
+
+	bool Compare(int idx1, int idx2, CompareOp op) const
+	{
+		LuaValue a = stack.Get(idx1);
+		LuaValue b = stack.Get(idx2);
+		switch (op)
+		{
+			case LUA_OPEQ: return _eq(a, b);
+			case LUA_OPLT: return _lt(a, b);
+			case LUA_OPLE: return _le(a, b);
+			default: panic("invalid compare op!"); return false;
+		}
+	}
+
+	void Len(int idx)
+	{
+		LuaValue val = stack.Get(idx);
+		if(val.IsString())
+			stack.Push(LuaValue((Int64)val.str.length()));
+		else
+			panic("length error!");
+	}
+
+	void Concat(int n)
+	{
+		if(n == 0)
+		{
+			stack.Push(LuaValue(""));
+		}
+		else if(n > 1)
+		{
+			for(int i = 1; i < n; ++i)
+			{
+				if(IsString(-1) && IsString(-2))
+				{
+					String s1 = ToString(-2);
+					String s2 = ToString(-1);
+					stack.Pop();
+					stack.Pop();
+					stack.Push(LuaValue(s1 + s2));
+					continue;
+				}
+				panic("concatenation error!");
+			}
+		}
+		// n == 1, do nothing
 	}
 };
 
