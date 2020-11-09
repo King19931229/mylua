@@ -2,6 +2,7 @@
 #include "lua_stack.h"
 #include "api_arith.h"
 #include "api_compare.h"
+#include "binchunk/binary_chunk.h"
 
 enum ArithOp
 {
@@ -31,6 +32,8 @@ enum CompareOp
 struct LuaState
 {
 	LuaStack stack;
+	Prototype* proto;
+	int pc;
 
 	int GetTop() const
 	{
@@ -66,6 +69,7 @@ struct LuaState
 		stack.Push(val);
 	}
 
+	// Pop the value from the top, and set it back the stack by the index(so the index should be > 0)
 	void Replace(int idx)
 	{
 		LuaValue val = stack.Pop();
@@ -294,11 +298,45 @@ struct LuaState
 		}
 		// n == 1, do nothing
 	}
+
+	/*
+	interfaces for luavm
+	*/
+	int PC() const { return pc; }
+	void AddPC(int n) { pc += n; }
+	UInt32 Fetch() { return proto->Code[pc++]; }
+	void GetConst(int idx)
+	{
+		Constant c = proto->Constants[idx];
+		switch (c.tag)
+		{
+			case TAG_NIL: stack.Push(LuaValue::Nil); break;
+			case TAG_BOOLEAN: stack.Push(LuaValue(c.boolean)); break;
+			case TAG_NUMBER: stack.Push(LuaValue(c.luaNum)); break;
+			case TAG_INTEGER: stack.Push(LuaValue(c.luaInteger)); break;
+			case TAG_SHORT_STR:
+			case TAG_LONG_STR: stack.Push(LuaValue(c.str)); break;
+		}
+	}
+	void GetRK(int rk)
+	{
+		if(rk > 0xFF)
+			GetConst(rk & 0xFF);
+		else
+			PushValue(rk + 1);
+	}
 };
 
-inline LuaState NewLuaState()
+using LuaVM = LuaState;
+
+inline LuaState NewLuaState(int stackSize, Prototype* proto)
 {
-	return LuaState{NewLuaStack(20)};
+	return LuaState
+	{
+		NewLuaStack(stackSize),
+		proto,
+		0
+	};
 }
 
 inline void PrintStack(LuaState& state)

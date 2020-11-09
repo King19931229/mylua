@@ -10,7 +10,7 @@
 
 int main()
 {
-	LuaState state = NewLuaState();
+	LuaState state = NewLuaState(20, nullptr);
 	state.PushInteger(1);
 	state.PushString("2.0");
 	state.PushString("3.0");
