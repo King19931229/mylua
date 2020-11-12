@@ -98,6 +98,7 @@ struct LuaState
 		stack._Reverse(p, t);
 	}
 
+	// Set capacity of the stack(idx means the capacity)
 	void SetTop(int idx)
 	{
 		size_t newTop = stack.AbsIndex(idx);

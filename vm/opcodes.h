@@ -88,6 +88,10 @@ enum OpArgMask
 	OpArgK /* argument is a constant or register/constant */
 };
 
+struct Instruction;
+struct LuaState;
+using LuaVM = LuaState;
+
 /* 9-bits 9-bits 8-bits 6-bits */
 struct OpCode
 {
@@ -97,6 +101,9 @@ struct OpCode
 	Byte argCMode; /* C arg mode */
 	Byte opMode; /* op mode */
 	String name;
+
+	typedef void(*Func)(Instruction, LuaVM*);
+	Func action;
 };
 
 extern const OpCode opcodes[47];

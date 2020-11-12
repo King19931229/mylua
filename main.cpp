@@ -10,6 +10,8 @@
 
 int main()
 {
+	char a = -1;
+	printf("%x\n", a);
 	LuaState state = NewLuaState(20, nullptr);
 	state.PushInteger(1);
 	state.PushString("2.0");

@@ -58,12 +58,14 @@ struct LuaStack
 		}
 	}
 
+	// idx here is absoulte index [1,n]
 	bool IsValid(int idx) const
 	{
 		size_t absIdx = AbsIndex(idx);
 		return absIdx > 0 && absIdx <= top;
 	}
 
+	// idx here is absoulte index [1,n]
 	LuaValue Get(int idx) const
 	{
 		size_t absIdx = AbsIndex(idx);
@@ -77,6 +79,7 @@ struct LuaStack
 		}
 	}
 
+	// idx here is absoulte index [1,n]
 	void Set(int idx, const LuaValue& value)
 	{
 		size_t absIdx = AbsIndex(idx);
