@@ -154,7 +154,7 @@ struct Instruction
 		return int(value >> 6);
 	}
 
-	inline String OpName() const
+	inline const String& OpName() const
 	{
 		return opcodes[Opcode()].name;
 	}
@@ -173,4 +173,6 @@ struct Instruction
 	{
 		return opcodes[Opcode()].argCMode;
 	}
+
+	void Execute(LuaVM *vm);
 };

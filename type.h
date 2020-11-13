@@ -15,7 +15,7 @@ using String = std::string;
 
 inline void panic(const char* message)
 {
-	printf("%s\n", message);
+	printf("panic exit: %s\n", message);
 	exit(0);
 }
 

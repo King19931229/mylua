@@ -38,38 +38,6 @@ inline bool _lt(const LuaValue& a, const LuaValue& b)
 {
 	switch (a.tag)
 	{
-		case LUA_TSTRING: if(b.tag == LUA_TSTRING) return a.str <= b.str; break;
-		case LUA_TNUMBER:
-		{
-			if(b.tag == LUA_TNUMBER)
-			{
-				if(a.isfloat)
-				{
-					if(b.isfloat)
-						return a.number <= b.number;
-					else
-						return a.number <= (Float64)b.integer;
-				}
-				else
-				{
-					if(b.isfloat)
-						return (Float64)a.integer <= b.number;
-					else
-						return a.integer <= b.integer;
-				}
-			}
-			break;
-		}
-		default: break;
-	}
-	panic("comparsion error!");
-	return false;
-}
-
-inline bool _le(const LuaValue& a, const LuaValue& b)
-{
-	switch (a.tag)
-	{
 		case LUA_TSTRING: if(b.tag == LUA_TSTRING) return a.str < b.str; break;
 		case LUA_TNUMBER:
 		{
@@ -88,6 +56,38 @@ inline bool _le(const LuaValue& a, const LuaValue& b)
 						return (Float64)a.integer < b.number;
 					else
 						return a.integer < b.integer;
+				}
+			}
+			break;
+		}
+		default: break;
+	}
+	panic("comparsion error!");
+	return false;
+}
+
+inline bool _le(const LuaValue& a, const LuaValue& b)
+{
+	switch (a.tag)
+	{
+		case LUA_TSTRING: if(b.tag == LUA_TSTRING) return a.str <= b.str; break;
+		case LUA_TNUMBER:
+		{
+			if(b.tag == LUA_TNUMBER)
+			{
+				if(a.isfloat)
+				{
+					if(b.isfloat)
+						return a.number <= b.number;
+					else
+						return a.number <= (Float64)b.integer;
+				}
+				else
+				{
+					if(b.isfloat)
+						return (Float64)a.integer <= b.number;
+					else
+						return a.integer <= b.integer;
 				}
 			}
 			break;

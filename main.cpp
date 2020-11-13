@@ -8,8 +8,31 @@
 #include "number/parser.h"
 #include "state/api_arith.h"
 
+void luaMain(Prototype* proto)
+{
+	int nRegs = proto->MaxStackSize;
+	LuaState state = NewLuaState(nRegs + 8/* Reserve some room for operation */, proto);
+	state.SetTop(nRegs);
+	while(true)
+	{
+		int pc = state.PC();
+		Instruction inst = Instruction{state.Fetch()};
+		if(inst.Opcode() != OP_RETURN)
+		{
+			inst.Execute(&state);
+			printf("[%02d] %s", pc + 1, inst.OpName().c_str());
+			PrintStack(state);
+		}
+		else
+		{
+			break;
+		}
+	}
+ }
+
 int main()
 {
+#if 0
 	char a = -1;
 	printf("%x\n", a);
 	LuaState state = NewLuaState(20, nullptr);
@@ -25,6 +48,7 @@ int main()
 	state.Concat(3); PrintStack(state);
 	state.PushBoolean(state.Compare(1, 2, LUA_OPEQ));
 	PrintStack(state);
+#endif
 #if 0
 	LuaState state = NewLuaState();
 	state.PushBoolean(true); PrintStack(state);
@@ -37,7 +61,7 @@ int main()
 	state.Remove(-3); PrintStack(state);
 	state.SetTop(-5); PrintStack(state);
 #endif
-#if 0
+#if 1
 	FILE* f = fopen("C:/LearnCompiler/lua-5.3.6/src/hello.luac", "rb");
 	if (f)
 	{
@@ -53,8 +77,8 @@ int main()
 		fclose(f);
 		f = NULL;
 
-		Prototype* type = Undump(buffer);
-		type->List();
+		Prototype* proto = Undump(buffer);
+		luaMain(proto);
 	}
 #endif
 }

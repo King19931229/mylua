@@ -101,3 +101,12 @@ const Operator operators[14] =
 	Operator{__funcs__::iunm, __funcs__::funm},
 	Operator{__funcs__::bnot, nullptr},
 };
+
+void Instruction::Execute(LuaVM *vm)
+{
+	OpCode::Func action = opcodes[Opcode()].action;
+	if(action)
+		action(*this, vm);
+	else
+		panic(OpName().c_str());
+}
