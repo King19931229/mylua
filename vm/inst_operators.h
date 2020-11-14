@@ -57,7 +57,7 @@ struct __str_insts__
 		auto abc = i.ABC();
 		int a = std::get<0>(abc) + 1;
 		int b = std::get<1>(abc) + 1;
-		int c = std::get<1>(abc) + 1;
+		int c = std::get<2>(abc) + 1;
 		int n = c - b + 1;
 		vm->CheckStack(n);
 		for(int i = b; i <= c; ++i)

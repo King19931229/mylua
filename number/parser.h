@@ -1,5 +1,5 @@
 #pragma once
-#include "type.h"
+#include "public.h"
 #include <tuple>
 
 inline std::tuple<Int64, bool> ParseInteger(const String& str)

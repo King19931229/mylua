@@ -1,6 +1,11 @@
 #pragma once
 #include "api/consts.h"
 #include "number/parser.h"
+#include <memory>
+#include <unordered_map>
+
+struct LuaTable;
+using LuaTablePtr = std::shared_ptr<LuaTable>;
 
 struct LuaValue
 {
@@ -13,6 +18,7 @@ struct LuaValue
 	};
 	bool isfloat;
 	std::string str;
+	LuaTablePtr table;
 
 	const static LuaValue NoValue;
 	const static LuaValue Nil;
@@ -21,22 +27,56 @@ struct LuaValue
 	inline bool IsFloat64() const { return tag == LUA_TNUMBER && isfloat; }
 	inline bool IsBool() const { return tag == LUA_TBOOLEAN; }
 	inline bool IsString() const { return tag == LUA_TSTRING; }
+	inline bool IsTable() const { return tag == LUA_TTABLE; }
 
-	bool operator==(const LuaValue& rhs) const
+	static size_t _BKDR(const char* pData, size_t uLen)
 	{
-		if(tag != rhs.tag)
-			return false;
-		// number comprare and integer compare is the same result
-		if(tag == LUA_TNUMBER && (number != rhs.number || isfloat != rhs.isfloat))
-			return false;
-		if(tag == LUA_TBOOLEAN && boolean != rhs.boolean)
-			return false;
-		if(tag == LUA_TSTRING && str != rhs.str)
-			return false;
-		return true;
+		size_t seed = 31; // 31 131 1313 13131 131313 etc.. 37
+		size_t hash = 0; 
+		/* variant with the hash unrolled eight times */ 
+		for (; uLen >= 8; uLen -= 8)
+		{ 
+			hash = hash * seed + *pData++;
+			hash = hash * seed + *pData++;
+			hash = hash * seed + *pData++;
+			hash = hash * seed + *pData++;
+			hash = hash * seed + *pData++;
+			hash = hash * seed + *pData++;
+			hash = hash * seed + *pData++;
+			hash = hash * seed + *pData++;
+		} 
+		switch (uLen)
+		{
+			case 7: hash = hash * seed + *pData++; /* fallthrough... */
+			case 6: hash = hash * seed + *pData++; /* fallthrough... */
+			case 5: hash = hash * seed + *pData++; /* fallthrough... */
+			case 4: hash = hash * seed + *pData++; /* fallthrough... */
+			case 3: hash = hash * seed + *pData++; /* fallthrough... */
+			case 2: hash = hash * seed + *pData++; /* fallthrough... */
+			case 1: hash = hash * seed + *pData++; break; 
+			case 0: break;
+		}
+	
+		return hash;
 	}
 
+	size_t Hash() const
+	{
+		size_t hash = 0;
+		HashCombine(hash, tag);
+		HashCombine(hash, integer);
+		HashCombine(hash, isfloat);
+		HashCombine(hash, _BKDR(str.c_str(), str.length()));
+		HashCombine(hash, table ? (size_t)table.get() : 0);
+		return hash;
+	}
+
+	bool operator==(const LuaValue& rhs) const { return Hash() == rhs.Hash(); }
+	bool operator<(const LuaValue& rhs) const { return Hash() < rhs.Hash(); }
+	bool operator<=(const LuaValue& rhs) const { return Hash() <= rhs.Hash(); }
 	bool operator!=(const LuaValue& rhs) const { return !(*this == rhs); }
+	bool operator>(const LuaValue& rhs) const { return !(*this <= rhs); }
+	bool operator>=(const LuaValue& rhs) const { return !(*this < rhs); }
 
 	LuaValue()
 	{
@@ -79,7 +119,22 @@ struct LuaValue
 		str = value;
 		isfloat = false;
 	}
+
+	LuaValue(LuaTablePtr t)
+	{
+		tag = LUA_TTABLE;
+		table = t;
+		isfloat = false;
+	}
 };
+
+namespace std
+{
+	template<> struct hash<LuaValue>
+	{
+		std::size_t operator()(const LuaValue& value) const noexcept { return value.Hash(); }
+	};
+}
 
 inline bool ConvertToBoolean(const LuaValue& value)
 {

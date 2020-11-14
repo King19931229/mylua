@@ -1,7 +1,9 @@
 #include "state/lua_value.h"
+#include "state/lua_table.h"
 #include "state/api_arith.h"
 #include "vm/inst_misc.h"
 #include "vm/inst_operators.h"
+#include "vm/inst_table.h"
 #include "vm/opcodes.h"
 
 const LuaValue LuaValue::NoValue(LUA_TNONE);
@@ -17,11 +19,11 @@ const OpCode opcodes[47] =
 	,MAKE_OP_CODE(0, 1, OpArgU, OpArgN, iABC, LOADNIL, __inst_misc__::loadNil)
 	,MAKE_OP_CODE(0, 1, OpArgU, OpArgN, iABC, GETUPVAL, nullptr)
 	,MAKE_OP_CODE(0, 1, OpArgU, OpArgK, iABC, GETTABUP, nullptr)
-	,MAKE_OP_CODE(0, 1, OpArgR, OpArgK, iABC, GETTABLE, nullptr)
+	,MAKE_OP_CODE(0, 1, OpArgR, OpArgK, iABC, GETTABLE, __table_insts__::getTable)
 	,MAKE_OP_CODE(0, 0, OpArgK, OpArgK, iABC, SETTABUP, nullptr)
 	,MAKE_OP_CODE(0, 0, OpArgU, OpArgN, iABC, SETUPVAL, nullptr)
-	,MAKE_OP_CODE(0, 0, OpArgK, OpArgK, iABC, SETTABLE, nullptr)
-	,MAKE_OP_CODE(0, 1, OpArgU, OpArgU, iABC, NEWTABLE, nullptr)
+	,MAKE_OP_CODE(0, 0, OpArgK, OpArgK, iABC, SETTABLE, __table_insts__::setTable)
+	,MAKE_OP_CODE(0, 1, OpArgU, OpArgU, iABC, NEWTABLE, __table_insts__::newTable)
 	,MAKE_OP_CODE(0, 1, OpArgR, OpArgK, iABC, SELF, nullptr)
 	,MAKE_OP_CODE(0, 1, OpArgK, OpArgK, iABC, ADD, __binary_insts__::add)
 	,MAKE_OP_CODE(0, 1, OpArgK, OpArgK, iABC, SUB, __binary_insts__::sub)
@@ -53,7 +55,7 @@ const OpCode opcodes[47] =
 	,MAKE_OP_CODE(0, 1, OpArgR, OpArgN, iAsBx, FORPREP, __other_insts__::forPrep)
 	,MAKE_OP_CODE(0, 0, OpArgN, OpArgU, iABC, TFORCALL, nullptr)
 	,MAKE_OP_CODE(0, 1, OpArgR, OpArgN, iAsBx, TFORLOOP, nullptr)
-	,MAKE_OP_CODE(0, 0, OpArgU, OpArgU, iABC, SETLIST, nullptr)
+	,MAKE_OP_CODE(0, 0, OpArgU, OpArgU, iABC, SETLIST, __table_insts__::setList)
 	,MAKE_OP_CODE(0, 1, OpArgU, OpArgN, iABx, CLOSURE, nullptr)
 	,MAKE_OP_CODE(0, 1, OpArgU, OpArgN, iABC, VARARG, nullptr)
 	,MAKE_OP_CODE(0, 0, OpArgU, OpArgU, iAx, EXTRAARG, nullptr)

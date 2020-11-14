@@ -1,5 +1,5 @@
 #pragma once
-#include "type.h"
+#include "public.h"
 #include <math.h>
 
 inline Int64 IFloorDiv(Int64 a, Int64 b)

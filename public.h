@@ -71,3 +71,37 @@ struct Format
 	static inline String FromInt64(Int64 i) { return std::to_string(i); }
 	static inline String FromString(const String& s) { return s; };
 };
+
+// https://stackoverflow.com/questions/2590677/how-do-i-combine-hash-values-in-c0x
+template <class T>
+inline void HashCombine(std::size_t& seed, const T& v)
+{
+	std::hash<T> hasher;
+	seed ^= hasher(v) + 0x9e3779b9 + (seed<<6) + (seed>>2);
+}
+
+/*
+** converts an integer to a "floating point byte", represented as
+** (eeeeexxx), where the real value is (1xxx) * 2^(eeeee - 1) if
+** eeeee != 0 and (xxx) otherwise.
+*/
+inline int Int2fb (int x)
+{
+	int e = 0;  /* exponent */
+	if (x < 8) return x;
+	while (x >= (8 << 4)) {  /* coarse steps */
+	x = (x + 0xf) >> 4;  /* x = ceil(x / 16) */
+	e += 4;
+	}
+	while (x >= (8 << 1)) {  /* fine steps */
+	x = (x + 1) >> 1;  /* x = ceil(x / 2) */
+	e++;
+	}
+	return ((e+1) << 3) | ((int)x - 8);
+}
+
+/* converts back */
+inline int Fb2int (int x)
+{
+	return (x < 8) ? x : ((x & 7) + 8) << ((x >> 3) - 1);
+}

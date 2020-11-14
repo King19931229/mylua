@@ -8,7 +8,7 @@
 #include "number/parser.h"
 #include "state/api_arith.h"
 
-void luaMain(Prototype* proto)
+void luaMain(PrototypePtr proto)
 {
 	int nRegs = proto->MaxStackSize;
 	LuaState state = NewLuaState(nRegs + 8/* Reserve some room for operation */, proto);
@@ -77,7 +77,7 @@ int main()
 		fclose(f);
 		f = NULL;
 
-		Prototype* proto = Undump(buffer);
+		PrototypePtr proto = Undump(buffer);
 		luaMain(proto);
 	}
 #endif

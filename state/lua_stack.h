@@ -1,6 +1,7 @@
 #pragma once
 #include "lua_value.h"
-#include "type.h"
+#include "lua_table.h"
+#include "public.h"
 #include <vector>
 #include <assert.h>
 

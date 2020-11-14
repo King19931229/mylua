@@ -1,5 +1,5 @@
 #pragma once
-#include "type.h"
+#include "public.h"
 #include <tuple>
 
 enum OpMode
@@ -112,6 +112,11 @@ static_assert(sizeof(opcodes) / sizeof(OpCode) == OP_EXTRAARG + 1, "size check")
 struct Instruction
 {
 	UInt32 value;
+
+	Instruction(UInt32 v)
+	{
+		value = v;
+	}
 
 	inline int Opcode() const
 	{

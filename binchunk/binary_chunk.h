@@ -1,7 +1,8 @@
 #pragma once
-#include "type.h"
+#include "public.h"
 #include "vm/opcodes.h"
 #include <vector>
+#include <memory>
 
 struct BinaryChunk
 {
@@ -74,6 +75,9 @@ struct LocVar
 	UInt32 EndPC;
 };
 
+struct Prototype;
+using PrototypePtr = std::shared_ptr<Prototype>;
+
 struct Prototype
 {
 	String Source;
@@ -85,7 +89,7 @@ struct Prototype
 	std::vector<UInt32> Code;
 	std::vector<Constant> Constants;
 	std::vector<Upvalue> Upvalues;
-	std::vector<Prototype*> Protos;
+	std::vector<PrototypePtr> Protos;
 	std::vector<UInt32> LineInfo;
 	std::vector<LocVar> LocVars; 
 	std::vector<std::string> UpvalueNames;
@@ -234,7 +238,7 @@ struct Prototype
 		PrintHeader();
 		PrintCode();
 		PrintDetail();
-		for(Prototype* p : Protos)
+		for(PrototypePtr p : Protos)
 		{
 			p->List();
 		}

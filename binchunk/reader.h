@@ -182,10 +182,10 @@ struct Reader
 		return upvalues;
 	}
 
-	std::vector<Prototype*> ReadProtos(const String& parentSource)
+	std::vector<PrototypePtr> ReadProtos(const String& parentSource)
 	{
 		UInt32 count = ReadUInt();
-		std::vector<Prototype*> protos;
+		std::vector<PrototypePtr> protos;
 		protos.resize(count);
 		for(UInt32 i = 0; i < count; ++i)
 		{
@@ -280,14 +280,14 @@ struct Reader
 		}
 	}
 
-	Prototype* ReadProtoType(const String& parentSource)
+	PrototypePtr ReadProtoType(const String& parentSource)
 	{
 		String source = ReadString();
 		if(source == "")
 		{
 			source = parentSource;
 		}
-		Prototype* proto = new Prototype();
+		PrototypePtr proto = PrototypePtr(new Prototype());
 		proto->Source = source;
 		proto->LineDefined = ReadUInt();
 		proto->LastLineDefined = ReadUInt();
@@ -305,7 +305,7 @@ struct Reader
 	}
 };
 
-Prototype* Undump(const ByteArray& data)
+PrototypePtr Undump(const ByteArray& data)
 {
 	Reader reader {data};
 	reader.CheckHeader();

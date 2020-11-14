@@ -32,7 +32,7 @@ enum CompareOp
 struct LuaState
 {
 	LuaStack stack;
-	Prototype* proto;
+	PrototypePtr proto;
 	int pc;
 
 	int GetTop() const
@@ -271,6 +271,8 @@ struct LuaState
 		LuaValue val = stack.Get(idx);
 		if(val.IsString())
 			stack.Push(LuaValue((Int64)val.str.length()));
+		else if(val.IsTable())
+			stack.Push(LuaValue((Int64)val.table->Len()));
 		else
 			panic("length error!");
 	}
@@ -298,6 +300,88 @@ struct LuaState
 			}
 		}
 		// n == 1, do nothing
+	}
+
+	/*
+	interfaces for table
+	*/
+	void CreateTable(int nArr, int nRec)
+	{
+		LuaTablePtr t = NewLuaTable(nArr, nRec);
+		stack.Push(LuaValue(t));
+	}
+
+	void NewTable()
+	{
+		CreateTable(0, 0);
+	}
+
+	LuaType _GetTable(const LuaValue& t, const LuaValue& k)
+	{
+		if(t.IsTable())
+		{
+			LuaValue v = t.table->Get(k);
+			stack.Push(v);
+			return v.tag;
+		}
+		else
+		{
+			panic("not a table!");
+			return LUA_TNONE;
+		}
+	}
+
+	LuaType GetTable(int idx)
+	{
+		LuaValue t = stack.Get(idx);
+		LuaValue k = stack.Pop();
+		return _GetTable(t, k);
+	}
+
+	LuaType GetField(int idx, const String& k)
+	{
+		LuaValue t = stack.Get(idx);
+		return _GetTable(t, LuaValue(k));
+	}
+
+	LuaType GetI(int idx, Int64 k)
+	{
+		LuaValue t = stack.Get(idx);
+		return _GetTable(t, LuaValue(k));
+	}
+
+	void _SetTable(const LuaValue& t, const LuaValue& k, const LuaValue& v)
+	{
+		if(t.IsTable())
+		{
+			t.table->Put(k, v);
+		}
+		else
+		{
+			panic("not a table!");
+		}
+	}
+
+	void SetTable(int idx)
+	{
+		LuaValue t = stack.Get(idx);
+		LuaValue v = stack.Pop();
+		LuaValue k = stack.Pop();
+		_SetTable(t, k, v);
+	}
+
+	void SetField(int idx, const String& k)
+	{
+		LuaValue t = stack.Get(idx);
+		LuaValue v = stack.Pop();
+		_SetTable(t, k, LuaValue(v));
+	}
+
+	void SetI(int idx, Int64 i)
+	{
+		LuaValue t = stack.Get(idx);
+		LuaValue v = stack.Pop();
+		_SetTable(t, i, LuaValue(v));
 	}
 
 	/*
@@ -330,7 +414,7 @@ struct LuaState
 
 using LuaVM = LuaState;
 
-inline LuaState NewLuaState(int stackSize, Prototype* proto)
+inline LuaState NewLuaState(int stackSize, PrototypePtr proto)
 {
 	return LuaState
 	{
