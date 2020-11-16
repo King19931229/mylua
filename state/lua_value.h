@@ -7,6 +7,9 @@
 struct LuaTable;
 using LuaTablePtr = std::shared_ptr<LuaTable>;
 
+struct Closure;
+using ClosurePtr = std::shared_ptr<Closure>;
+
 struct LuaValue
 {
 	LuaType tag;
@@ -19,6 +22,7 @@ struct LuaValue
 	bool isfloat;
 	std::string str;
 	LuaTablePtr table;
+	ClosurePtr closure;
 
 	const static LuaValue NoValue;
 	const static LuaValue Nil;
@@ -28,6 +32,7 @@ struct LuaValue
 	inline bool IsBool() const { return tag == LUA_TBOOLEAN; }
 	inline bool IsString() const { return tag == LUA_TSTRING; }
 	inline bool IsTable() const { return tag == LUA_TTABLE; }
+	inline bool IsClosure() const { return tag == LUA_TFUNCTION; }
 
 	static size_t _BKDR(const char* pData, size_t uLen)
 	{
@@ -68,6 +73,7 @@ struct LuaValue
 		HashCombine(hash, isfloat);
 		HashCombine(hash, _BKDR(str.c_str(), str.length()));
 		HashCombine(hash, table ? (size_t)table.get() : 0);
+		HashCombine(hash, closure ? (size_t)closure.get() : 0);
 		return hash;
 	}
 
@@ -78,55 +84,64 @@ struct LuaValue
 	bool operator>(const LuaValue& rhs) const { return !(*this <= rhs); }
 	bool operator>=(const LuaValue& rhs) const { return !(*this < rhs); }
 
-	LuaValue()
+	explicit LuaValue()
 	{
 		tag = LUA_TNONE;
 		integer = false;
 		isfloat = false;
 	}
 
-	LuaValue(LuaType _tag)
+	explicit LuaValue(LuaType _tag)
 	{
 		tag = _tag;
 		integer = false;
 		isfloat = false;
 	}
 
-	LuaValue(bool value)
+	explicit LuaValue(bool value)
 	{
 		tag = LUA_TBOOLEAN;
 		boolean = value;
 		isfloat = false;
 	}
 
-	LuaValue(Int64 value)
+	explicit LuaValue(Int64 value)
 	{
 		tag = LUA_TNUMBER;
 		integer = value;
 		isfloat = false;
 	}
 
-	LuaValue(Float64 value)
+	explicit LuaValue(Float64 value)
 	{
 		tag = LUA_TNUMBER;
 		number = value;
 		isfloat = true;
 	}
 
-	LuaValue(const String& value)
+	explicit LuaValue(const String& value)
 	{
 		tag = LUA_TSTRING;
 		str = value;
 		isfloat = false;
 	}
 
-	LuaValue(LuaTablePtr t)
+	explicit LuaValue(LuaTablePtr t)
 	{
 		tag = LUA_TTABLE;
 		table = t;
 		isfloat = false;
 	}
+
+	explicit LuaValue(ClosurePtr c)
+	{
+		tag = LUA_TFUNCTION;
+		closure = c;
+		isfloat = false;
+	}
 };
+
+typedef std::vector<LuaValue> LuaValueArray;
 
 namespace std
 {

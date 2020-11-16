@@ -1,19 +1,34 @@
 #pragma once
 #include "lua_value.h"
 #include "lua_table.h"
+#include "closure.h"
 #include "public.h"
 #include <vector>
 #include <assert.h>
 
+struct LuaStack;
+using LuaStackPtr = std::shared_ptr<LuaStack>;
+
 struct LuaStack
 {
 	std::vector<LuaValue> slots;
-	size_t top;
+	std::vector<LuaValue> varargs;
+	LuaStackPtr prev;
+	ClosurePtr closure;
+	int top;
+	int pc;
 
-	void Check(size_t n)
+	LuaStack()
 	{
-		size_t free = slots.size() - top;
-		for(size_t i = free; i < n; ++i)
+		prev = nullptr;
+		closure = nullptr;
+		top = pc = 0;
+	}
+
+	void Check(int n)
+	{
+		int free = (int)slots.size() - top;
+		for(int i = free; i < n; ++i)
 		{
 			slots.push_back(LuaValue::Nil);
 		}
@@ -21,14 +36,14 @@ struct LuaStack
 
 	void Push(const LuaValue& value)
 	{
-		if(top == slots.size())
+		if(top == (int)slots.size())
 		{
 			panic("stack overflow!");
 		}
 		else
 		{
 			slots[top++] = value;
-		}	
+		}
 	}
 
 	LuaValue Pop()
@@ -44,10 +59,30 @@ struct LuaStack
 			LuaValue ret = slots[top];
 			slots[top] = LuaValue::Nil;
 			return ret;	
-		}		
+		}
 	}
 
-	size_t AbsIndex(int idx) const
+	void PushN(const LuaValueArray& vals, int n)
+	{
+		for(int i = 0; i < n; ++i)
+		{
+			if(i < (int)vals.size())
+				Push(vals[i]);
+			else
+				Push(LuaValue::Nil);
+		}
+	}
+
+	LuaValueArray PopN(int n)
+	{
+		LuaValueArray vals;
+		vals.resize(n);
+		for(int i = 0; i < n; ++i)
+			vals[i] = Pop();
+		return vals;
+	}
+
+	int AbsIndex(int idx) const
 	{
 		panic_cond(idx != 0, "index out of bound");
 		if(idx >= 0)
@@ -62,14 +97,14 @@ struct LuaStack
 	// idx here is absoulte index [1,n]
 	bool IsValid(int idx) const
 	{
-		size_t absIdx = AbsIndex(idx);
+		int absIdx = AbsIndex(idx);
 		return absIdx > 0 && absIdx <= top;
 	}
 
 	// idx here is absoulte index [1,n]
 	LuaValue Get(int idx) const
 	{
-		size_t absIdx = AbsIndex(idx);
+		int absIdx = AbsIndex(idx);
 		if(absIdx > 0 && absIdx <= top)
 		{
 			return slots[absIdx - 1];
@@ -83,7 +118,7 @@ struct LuaStack
 	// idx here is absoulte index [1,n]
 	void Set(int idx, const LuaValue& value)
 	{
-		size_t absIdx = AbsIndex(idx);
+		int absIdx = AbsIndex(idx);
 		if(absIdx > 0 && absIdx <= top)
 		{
 			slots[absIdx - 1] = value;
@@ -106,12 +141,12 @@ struct LuaStack
 	}
 };
 
-inline LuaStack NewLuaStack(size_t size)
+inline LuaStackPtr NewLuaStack(size_t size)
 {
-	LuaStack ret;
-	ret.slots.resize(size);
+	LuaStackPtr ret = LuaStackPtr(new LuaStack());
+	ret->slots.resize(size);
 	for(size_t i = 0; i < size; ++i)
-		ret.slots[i] = LuaValue::Nil;
-	ret.top = 0;
+		ret->slots[i] = LuaValue::Nil;
+	ret->top = 0;
 	return ret;
 }

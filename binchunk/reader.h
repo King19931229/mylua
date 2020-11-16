@@ -1,8 +1,6 @@
 #pragma once
 #include "binary_chunk.h"
 
-using ByteArray = std::vector<Byte>;
-
 inline bool bytesEqual(const Byte* lhs, const Byte* rhs, size_t len)
 {
 	if(lhs && rhs)
@@ -305,7 +303,7 @@ struct Reader
 	}
 };
 
-PrototypePtr Undump(const ByteArray& data)
+inline PrototypePtr Undump(const ByteArray& data)
 {
 	Reader reader {data};
 	reader.CheckHeader();

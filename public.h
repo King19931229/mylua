@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
 #include <cstring>
+#include <vector>
 #include <stdarg.h>
 
 using Byte = unsigned char;
@@ -12,6 +13,7 @@ using UInt64 = unsigned long long int;
 static_assert(sizeof(Int64) == 8, "size check");
 using Float64 = double;
 using String = std::string;
+using ByteArray = std::vector<Byte>;
 
 inline void panic(const char* message)
 {
@@ -104,4 +106,22 @@ inline int Int2fb (int x)
 inline int Fb2int (int x)
 {
 	return (x < 8) ? x : ((x & 7) + 8) << ((x >> 3) - 1);
+}
+
+template<typename Container>
+Container Slice(Container& c, int beg, int end)
+{
+	beg = beg > 0 ? beg : c.size() + beg;
+	end = end > 0 ? end : c.size() + end;
+	// invalid bound
+	if(beg < 0 || end < 0 || beg > end || end > (int)c.size())
+	{
+		panic("invalid bound");
+		return Container();
+	}
+	Container res;
+	res.resize(end - beg);
+	for(int i = beg; i < end; ++i)
+		res[i - beg] = c[i];
+	return res;
 }

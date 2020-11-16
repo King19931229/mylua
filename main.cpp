@@ -11,7 +11,7 @@
 void luaMain(PrototypePtr proto)
 {
 	int nRegs = proto->MaxStackSize;
-	LuaState state = NewLuaState(nRegs + 8/* Reserve some room for operation */, proto);
+	LuaState state = NewLuaState(nRegs);
 	state.SetTop(nRegs);
 	while(true)
 	{

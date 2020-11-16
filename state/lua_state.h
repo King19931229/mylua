@@ -3,6 +3,7 @@
 #include "api_arith.h"
 #include "api_compare.h"
 #include "binchunk/binary_chunk.h"
+#include "binchunk/reader.h"
 
 enum ArithOp
 {
@@ -31,49 +32,47 @@ enum CompareOp
 
 struct LuaState
 {
-	LuaStack stack;
-	PrototypePtr proto;
-	int pc;
+	LuaStackPtr stack;
 
 	int GetTop() const
 	{
-		return (int)stack.top;
+		return (int)stack->top;
 	}
 
 	int AbsIndex(int idx) const
 	{
-		return stack.AbsIndex(idx);
+		return stack->AbsIndex(idx);
 	}
 
 	bool CheckStack(int n)
 	{
-		stack.Check(n);
+		stack->Check(n);
 		return true;
 	}
 
 	void Pop(int n)
 	{
 		for(int i = 0; i < n; ++i)
-			stack.Pop();
+			stack->Pop();
 	}
 
 	void Copy(int fromIdx, int toIdx)
 	{
-		LuaValue val = stack.Get(fromIdx);
-		stack.Set(toIdx, val);
+		LuaValue val = stack->Get(fromIdx);
+		stack->Set(toIdx, val);
 	}
 
 	void PushValue(int idx)
 	{
-		LuaValue val = stack.Get(idx);
-		stack.Push(val);
+		LuaValue val = stack->Get(idx);
+		stack->Push(val);
 	}
 
 	// Pop the value from the top, and set it back the stack by the index(so the index should be > 0)
 	void Replace(int idx)
 	{
-		LuaValue val = stack.Pop();
-		stack.Set(idx, val);
+		LuaValue val = stack->Pop();
+		stack->Set(idx, val);
 	}
 
 	/*
@@ -90,32 +89,32 @@ struct LuaState
 	*/
 	void Rotate(int idx, int n)
 	{
-		size_t t = stack.top - 1;
+		size_t t = stack->top - 1;
 		size_t p = idx - 1;
 		size_t m = (n >= 0) ? (t - n) : (p - n - 1);
-		stack._Reverse(p, m);
-		stack._Reverse(m + 1, t);
-		stack._Reverse(p, t);
+		stack->_Reverse(p, m);
+		stack->_Reverse(m + 1, t);
+		stack->_Reverse(p, t);
 	}
 
 	// Set capacity of the stack(idx means the capacity)
 	void SetTop(int idx)
 	{
-		size_t newTop = stack.AbsIndex(idx);
+		size_t newTop = stack->AbsIndex(idx);
 		if(newTop < 0)
 		{
 			panic("stack underflow");
 		}
-		int n = (int)stack.top - (int)newTop;
+		int n = (int)stack->top - (int)newTop;
 		if(n > 0)
 		{
 			for(int i = 0; i < n; ++i)
-				stack.Pop();
+				stack->Pop();
 		}
 		else if(n < 0)
 		{
 			for(int i = 0; i > n; --i)
-				stack.Push(LuaValue::Nil);
+				stack->Push(LuaValue::Nil);
 		}
 	}
 
@@ -131,11 +130,11 @@ struct LuaState
 		Pop(1);
 	}
 
-	void PushNil() { stack.Push(LuaValue::Nil); }
-	void PushBoolean(bool b) { stack.Push(LuaValue(b)); }
-	void PushInteger(Int64 n) { stack.Push(LuaValue(n)); }
-	void PushNumber(Float64 n) { stack.Push(LuaValue(n)); }
-	void PushString(const String& str){ stack.Push(LuaValue(str)); }
+	void PushNil() { stack->Push(LuaValue::Nil); }
+	void PushBoolean(bool b) { stack->Push(LuaValue(b)); }
+	void PushInteger(Int64 n) { stack->Push(LuaValue(n)); }
+	void PushNumber(Float64 n) { stack->Push(LuaValue(n)); }
+	void PushString(const String& str){ stack->Push(LuaValue(str)); }
 
 	static String TypeName(LuaType tp)
 	{
@@ -157,9 +156,9 @@ struct LuaState
 
 	LuaType Type(int idx) const
 	{
-		if(stack.IsValid(idx))
+		if(stack->IsValid(idx))
 		{
-			LuaValue value = stack.Get(idx);
+			LuaValue value = stack->Get(idx);
 			return value.tag;
 		}
 		return LUA_TNONE;
@@ -177,13 +176,13 @@ struct LuaState
 
 	bool ToBoolean(int idx) const
 	{
-		LuaValue value = stack.Get(idx);
+		LuaValue value = stack->Get(idx);
 		return ConvertToBoolean(value);
 	}
 
 	std::tuple<Float64, bool> ToNumberX(int idx) const
 	{
-		LuaValue value = stack.Get(idx);
+		LuaValue value = stack->Get(idx);
 		return ConvertToFloat(value);
 	}
 
@@ -201,7 +200,7 @@ struct LuaState
 
 	std::tuple<Int64, bool> ToIntegerX(int idx) const
 	{
-		LuaValue value = stack.Get(idx);
+		LuaValue value = stack->Get(idx);
 		return ConvertToInteger(value);
 	}
 
@@ -213,7 +212,7 @@ struct LuaState
 
 	std::tuple<String, bool> ToStringX(int idx)
 	{
-		LuaValue val = stack.Get(idx);
+		LuaValue val = stack->Get(idx);
 		switch(val.tag)
 		{
 			case LUA_TSTRING: return std::make_tuple(val.str, true);
@@ -224,7 +223,7 @@ struct LuaState
 					ret = std::make_tuple(std::to_string(val.number), true);
 				else
 					ret = std::make_tuple(std::to_string(val.integer), true);
-				stack.Set(idx, LuaValue(std::get<0>(ret)));
+				stack->Set(idx, LuaValue(std::get<0>(ret)));
 				return ret;
 			}
 			default: return std::make_tuple("", false);
@@ -239,24 +238,24 @@ struct LuaState
 
 	void Arith(ArithOp op)
 	{
-		LuaValue b = stack.Pop();
+		LuaValue b = stack->Pop();
 		LuaValue a;
 		if(op != LUA_OPUNM && op != LUA_OPBNOT)
-			a = stack.Pop();
+			a = stack->Pop();
 		else
 			a = b;
 		Operator operaotr = operators[op];
 		LuaValue res = _Arith(a, b, operaotr);
 		if(res != LuaValue::Nil)
-			stack.Push(res);
+			stack->Push(res);
 		else
 			panic("arithmetic error!");
 	}
 
 	bool Compare(int idx1, int idx2, CompareOp op) const
 	{
-		LuaValue a = stack.Get(idx1);
-		LuaValue b = stack.Get(idx2);
+		LuaValue a = stack->Get(idx1);
+		LuaValue b = stack->Get(idx2);
 		switch (op)
 		{
 			case LUA_OPEQ: return _eq(a, b);
@@ -268,11 +267,11 @@ struct LuaState
 
 	void Len(int idx)
 	{
-		LuaValue val = stack.Get(idx);
+		LuaValue val = stack->Get(idx);
 		if(val.IsString())
-			stack.Push(LuaValue((Int64)val.str.length()));
+			stack->Push(LuaValue((Int64)val.str.length()));
 		else if(val.IsTable())
-			stack.Push(LuaValue((Int64)val.table->Len()));
+			stack->Push(LuaValue((Int64)val.table->Len()));
 		else
 			panic("length error!");
 	}
@@ -281,7 +280,7 @@ struct LuaState
 	{
 		if(n == 0)
 		{
-			stack.Push(LuaValue(""));
+			stack->Push(LuaValue(""));
 		}
 		else if(n > 1)
 		{
@@ -291,9 +290,9 @@ struct LuaState
 				{
 					String s1 = ToString(-2);
 					String s2 = ToString(-1);
-					stack.Pop();
-					stack.Pop();
-					stack.Push(LuaValue(s1 + s2));
+					stack->Pop();
+					stack->Pop();
+					stack->Push(LuaValue(s1 + s2));
 					continue;
 				}
 				panic("concatenation error!");
@@ -308,7 +307,7 @@ struct LuaState
 	void CreateTable(int nArr, int nRec)
 	{
 		LuaTablePtr t = NewLuaTable(nArr, nRec);
-		stack.Push(LuaValue(t));
+		stack->Push(LuaValue(t));
 	}
 
 	void NewTable()
@@ -321,7 +320,7 @@ struct LuaState
 		if(t.IsTable())
 		{
 			LuaValue v = t.table->Get(k);
-			stack.Push(v);
+			stack->Push(v);
 			return v.tag;
 		}
 		else
@@ -333,20 +332,20 @@ struct LuaState
 
 	LuaType GetTable(int idx)
 	{
-		LuaValue t = stack.Get(idx);
-		LuaValue k = stack.Pop();
+		LuaValue t = stack->Get(idx);
+		LuaValue k = stack->Pop();
 		return _GetTable(t, k);
 	}
 
 	LuaType GetField(int idx, const String& k)
 	{
-		LuaValue t = stack.Get(idx);
+		LuaValue t = stack->Get(idx);
 		return _GetTable(t, LuaValue(k));
 	}
 
 	LuaType GetI(int idx, Int64 k)
 	{
-		LuaValue t = stack.Get(idx);
+		LuaValue t = stack->Get(idx);
 		return _GetTable(t, LuaValue(k));
 	}
 
@@ -364,43 +363,129 @@ struct LuaState
 
 	void SetTable(int idx)
 	{
-		LuaValue t = stack.Get(idx);
-		LuaValue v = stack.Pop();
-		LuaValue k = stack.Pop();
+		LuaValue t = stack->Get(idx);
+		LuaValue v = stack->Pop();
+		LuaValue k = stack->Pop();
 		_SetTable(t, k, v);
 	}
 
 	void SetField(int idx, const String& k)
 	{
-		LuaValue t = stack.Get(idx);
-		LuaValue v = stack.Pop();
-		_SetTable(t, k, LuaValue(v));
+		LuaValue t = stack->Get(idx);
+		LuaValue v = stack->Pop();
+		_SetTable(t, LuaValue(k), LuaValue(v));
 	}
 
 	void SetI(int idx, Int64 i)
 	{
-		LuaValue t = stack.Get(idx);
-		LuaValue v = stack.Pop();
-		_SetTable(t, i, LuaValue(v));
+		LuaValue t = stack->Get(idx);
+		LuaValue v = stack->Pop();
+		_SetTable(t, LuaValue(i), LuaValue(v));
+	}
+
+	void PushLuaStack(LuaStackPtr s)
+	{
+		s->prev = stack;
+		stack = s;
+	}
+
+	void PopLuaStack()
+	{
+		LuaStackPtr s = stack;
+		stack = stack->prev;
+		s->prev = nullptr;
+	}
+
+	int Load(const ByteArray& chunk, const String& chunkName, const String& mode)
+	{
+		PrototypePtr proto = Undump(chunk);
+		ClosurePtr closure = NewLuaClosure(proto);
+		stack->Push(LuaValue(closure));
+		return 0;
+	}
+
+	void RunLuaClosure()
+	{
+		while(true)
+		{
+			Instruction inst = Instruction(Fetch());
+			inst.Execute(this);
+			if(inst.Opcode() == OP_RETURN)
+				break;
+		}
+	}
+
+	void CallLuaClosure(int nArgs, int nResults, ClosurePtr c)
+	{
+		int nRegs = (int)c->proto->MaxStackSize;
+		int nParams = (int)c->proto->NumParams;
+		bool isVararg = c->proto->IsVararg == 1;
+
+		LuaStackPtr newStack = NewLuaStack(nRegs + 20);
+		// Assign the function
+		newStack->closure = c;
+
+		// a = func(1,2,3,...)
+		// a(1,2,3,4,5) nArgs = 5, nParams = 3
+		// nArgs(which is all arguments) contains nParams(which is non varargs arguments)
+		LuaValueArray funcAndArgs = stack->PopN(nArgs + 1);
+		// Push the non varargs arguments
+		newStack->PushN(Slice(funcAndArgs, 1, funcAndArgs.size()), nParams);
+		if(nArgs > nParams && isVararg)
+		{
+			// Assign the varargs arguments
+			newStack->varargs = Slice(funcAndArgs, nParams + 1, funcAndArgs.size());
+		}
+
+		PushLuaStack(newStack);
+		RunLuaClosure();
+		PopLuaStack();
+
+		if(nResults != 0)
+		{
+			// Pop the return values from the newStack
+			LuaValueArray results = newStack->PopN(newStack->top - nRegs);
+			stack->Check((int)results.size());
+			// nResults not "(int)results.size()" for some ticky usage
+			stack->PushN(results, nResults);
+		}
+	}
+
+	void Call(int nArgs, int nResults)
+	{
+		// closure func
+		LuaValue val = stack->Get(-(nArgs + 1));
+		if(val.IsClosure())
+		{
+			ClosurePtr c = val.closure;
+			printf("call %s<%d,%d>\n", c->proto->Source.c_str(),
+				c->proto->LineDefined,
+			 	c->proto->LastLineDefined);
+			CallLuaClosure(nArgs, nResults, c);
+		}
+		else
+		{
+			panic("not function");
+		}
 	}
 
 	/*
 	interfaces for luavm
 	*/
-	int PC() const { return pc; }
-	void AddPC(int n) { pc += n; }
-	UInt32 Fetch() { return proto->Code[pc++]; }
+	int PC() const { return stack->pc; }
+	void AddPC(int n) { stack->pc += n; }
+	UInt32 Fetch() { return stack->closure->proto->Code[stack->pc++]; }
 	void GetConst(int idx)
 	{
-		Constant c = proto->Constants[idx];
+		Constant c = stack->closure->proto->Constants[idx];
 		switch (c.tag)
 		{
-			case TAG_NIL: stack.Push(LuaValue::Nil); break;
-			case TAG_BOOLEAN: stack.Push(LuaValue(c.boolean)); break;
-			case TAG_NUMBER: stack.Push(LuaValue(c.luaNum)); break;
-			case TAG_INTEGER: stack.Push(LuaValue(c.luaInteger)); break;
+			case TAG_NIL: stack->Push(LuaValue::Nil); break;
+			case TAG_BOOLEAN: stack->Push(LuaValue(c.boolean)); break;
+			case TAG_NUMBER: stack->Push(LuaValue(c.luaNum)); break;
+			case TAG_INTEGER: stack->Push(LuaValue(c.luaInteger)); break;
 			case TAG_SHORT_STR:
-			case TAG_LONG_STR: stack.Push(LuaValue(c.str)); break;
+			case TAG_LONG_STR: stack->Push(LuaValue(c.str)); break;
 		}
 	}
 	void GetRK(int rk)
@@ -410,17 +495,30 @@ struct LuaState
 		else
 			PushValue(rk + 1);
 	}
+
+	int RegisterCount() const { return stack->closure->proto->MaxStackSize;	}
+	void LoadVararg(int n)
+	{
+		if(n < 0)
+			n = stack->varargs.size();
+		stack->Check(n);
+		stack->PushN(stack->varargs, n);
+	}
+	void LoadProto(int idx)
+	{
+		PrototypePtr proto = stack->closure->proto->Protos[idx];
+		ClosurePtr closure = NewLuaClosure(proto);
+		stack->Push(LuaValue(closure));
+	}
 };
 
 using LuaVM = LuaState;
 
-inline LuaState NewLuaState(int stackSize, PrototypePtr proto)
+inline LuaState NewLuaState(int stackSize)
 {
 	return LuaState
 	{
-		NewLuaStack(stackSize),
-		proto,
-		0
+		NewLuaStack(stackSize)
 	};
 }
 
