@@ -64,6 +64,8 @@ struct LuaStack
 
 	void PushN(const LuaValueArray& vals, int n)
 	{
+		if(n < 0)
+			n = (int)vals.size();
 		for(int i = 0; i < n; ++i)
 		{
 			if(i < (int)vals.size())

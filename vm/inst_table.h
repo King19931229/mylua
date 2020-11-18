@@ -43,6 +43,14 @@ struct __table_insts__
 		int a = std::get<0>(abc) + 1;
 		int b = std::get<1>(abc);
 		int c = std::get<2>(abc);
+
+		bool bIsZero = b == 0;
+		if(bIsZero)
+		{
+			b = vm->ToInteger(-1) - a - 1;
+			vm->Pop(1); 
+		}
+
 		if(c > 0)
 		{
 			c -= 1;
@@ -58,6 +66,17 @@ struct __table_insts__
 			vm->PushValue(a + i);
 			++idx;
 			vm->SetI(a, idx);
+		}
+
+		if(bIsZero)
+		{
+			for(int j = vm->RegisterCount() + 1; j <= vm->GetTop(); ++j)
+			{
+				++idx;
+				vm->PushValue(j);
+				vm->SetI(a, idx);
+			}
+			vm->SetTop(vm->RegisterCount());
 		}
 	}
 };

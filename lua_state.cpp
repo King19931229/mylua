@@ -4,6 +4,7 @@
 #include "vm/inst_misc.h"
 #include "vm/inst_operators.h"
 #include "vm/inst_table.h"
+#include "vm/inst_call.h"
 #include "vm/opcodes.h"
 
 const LuaValue LuaValue::NoValue(LUA_TNONE);
@@ -24,7 +25,7 @@ const OpCode opcodes[47] =
 	,MAKE_OP_CODE(0, 0, OpArgU, OpArgN, iABC, SETUPVAL, nullptr)
 	,MAKE_OP_CODE(0, 0, OpArgK, OpArgK, iABC, SETTABLE, __table_insts__::setTable)
 	,MAKE_OP_CODE(0, 1, OpArgU, OpArgU, iABC, NEWTABLE, __table_insts__::newTable)
-	,MAKE_OP_CODE(0, 1, OpArgR, OpArgK, iABC, SELF, nullptr)
+	,MAKE_OP_CODE(0, 1, OpArgR, OpArgK, iABC, SELF, __call_insts__::self)
 	,MAKE_OP_CODE(0, 1, OpArgK, OpArgK, iABC, ADD, __binary_insts__::add)
 	,MAKE_OP_CODE(0, 1, OpArgK, OpArgK, iABC, SUB, __binary_insts__::sub)
 	,MAKE_OP_CODE(0, 1, OpArgK, OpArgK, iABC, MUL, __binary_insts__::mul)
@@ -48,16 +49,16 @@ const OpCode opcodes[47] =
 	,MAKE_OP_CODE(1, 0, OpArgK, OpArgK, iABC, LE, __compare_insts__::le)
 	,MAKE_OP_CODE(1, 0, OpArgN, OpArgU, iABC, TEST, __other_insts__::test)
 	,MAKE_OP_CODE(1, 1, OpArgR, OpArgU, iABC, TESTSET, __other_insts__::testSet)
-	,MAKE_OP_CODE(0, 1, OpArgU, OpArgU, iABC, CALL, nullptr)
-	,MAKE_OP_CODE(0, 1, OpArgU, OpArgU, iABC, TAILCALL, nullptr)
-	,MAKE_OP_CODE(0, 0, OpArgU, OpArgN, iABC, RETURN, nullptr)
+	,MAKE_OP_CODE(0, 1, OpArgU, OpArgU, iABC, CALL, __call_insts__::call)
+	,MAKE_OP_CODE(0, 1, OpArgU, OpArgU, iABC, TAILCALL, __call_insts__::tailCall)
+	,MAKE_OP_CODE(0, 0, OpArgU, OpArgN, iABC, RETURN, __call_insts__::_return)
 	,MAKE_OP_CODE(0, 1, OpArgR, OpArgN, iAsBx, FORLOOP, __other_insts__::forLoop)
 	,MAKE_OP_CODE(0, 1, OpArgR, OpArgN, iAsBx, FORPREP, __other_insts__::forPrep)
 	,MAKE_OP_CODE(0, 0, OpArgN, OpArgU, iABC, TFORCALL, nullptr)
 	,MAKE_OP_CODE(0, 1, OpArgR, OpArgN, iAsBx, TFORLOOP, nullptr)
 	,MAKE_OP_CODE(0, 0, OpArgU, OpArgU, iABC, SETLIST, __table_insts__::setList)
-	,MAKE_OP_CODE(0, 1, OpArgU, OpArgN, iABx, CLOSURE, nullptr)
-	,MAKE_OP_CODE(0, 1, OpArgU, OpArgN, iABC, VARARG, nullptr)
+	,MAKE_OP_CODE(0, 1, OpArgU, OpArgN, iABx, CLOSURE, __call_insts__::closure)
+	,MAKE_OP_CODE(0, 1, OpArgU, OpArgN, iABC, VARARG, __call_insts__::vararg)
 	,MAKE_OP_CODE(0, 0, OpArgU, OpArgU, iAx, EXTRAARG, nullptr)
 #undef MAKE_OP_CODE
 };
