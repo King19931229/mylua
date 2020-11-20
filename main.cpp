@@ -8,28 +8,6 @@
 #include "number/parser.h"
 #include "state/api_arith.h"
 
-void luaMain(PrototypePtr proto)
-{
-	int nRegs = proto->MaxStackSize;
-	LuaState state = NewLuaState(nRegs);
-	state.SetTop(nRegs);
-	while(true)
-	{
-		int pc = state.PC();
-		Instruction inst = Instruction{state.Fetch()};
-		if(inst.Opcode() != OP_RETURN)
-		{
-			inst.Execute(&state);
-			printf("[%02d] %s", pc + 1, inst.OpName().c_str());
-			PrintStack(state);
-		}
-		else
-		{
-			break;
-		}
-	}
- }
-
 int main()
 {
 #if 0
@@ -77,8 +55,9 @@ int main()
 		fclose(f);
 		f = NULL;
 
-		PrototypePtr proto = Undump(buffer);
-		luaMain(proto);
+		LuaState state = NewLuaState();
+		state.Load(buffer, "", "b");
+		state.Call(0, 0);
 	}
 #endif
 }

@@ -21,6 +21,11 @@ inline void panic(const char* message)
 	exit(0);
 }
 
+inline void warning(const char* message)
+{
+	printf("warning: %s\n", message);
+}
+
 #define panic_cond(COND, message)\
 do\
 {\

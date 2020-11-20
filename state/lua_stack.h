@@ -121,6 +121,10 @@ struct LuaStack
 	void Set(int idx, const LuaValue& value)
 	{
 		int absIdx = AbsIndex(idx);
+
+		if(absIdx == top + 1)
+			++top;
+
 		if(absIdx > 0 && absIdx <= top)
 		{
 			slots[absIdx - 1] = value;
@@ -143,11 +147,11 @@ struct LuaStack
 	}
 };
 
-inline LuaStackPtr NewLuaStack(size_t size)
+inline LuaStackPtr NewLuaStack(int size)
 {
 	LuaStackPtr ret = LuaStackPtr(new LuaStack());
 	ret->slots.resize(size);
-	for(size_t i = 0; i < size; ++i)
+	for(int i = 0; i < size; ++i)
 		ret->slots[i] = LuaValue::Nil;
 	ret->top = 0;
 	return ret;

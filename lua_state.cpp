@@ -111,5 +111,5 @@ void Instruction::Execute(LuaVM *vm)
 	if(action)
 		action(*this, vm);
 	else
-		panic(OpName().c_str());
+		warning(OpName().c_str());
 }

@@ -465,7 +465,7 @@ struct LuaState
 		}
 		else
 		{
-			panic("not function");
+			warning("not function");
 		}
 	}
 
@@ -514,11 +514,11 @@ struct LuaState
 
 using LuaVM = LuaState;
 
-inline LuaState NewLuaState(int stackSize)
+inline LuaState NewLuaState()
 {
 	return LuaState
 	{
-		NewLuaStack(stackSize)
+		NewLuaStack(20)
 	};
 }
 
