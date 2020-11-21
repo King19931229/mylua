@@ -7,9 +7,6 @@
 #include "vm/inst_call.h"
 #include "vm/opcodes.h"
 
-const LuaValue LuaValue::NoValue(LUA_TNONE);
-const LuaValue LuaValue::Nil(LUA_TNIL);
-
 const OpCode opcodes[47] =
 {
 #define MAKE_OP_CODE(T, A, B, C, mode, name, action) OpCode{T, A, B, C, mode, #name, action}

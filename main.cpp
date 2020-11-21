@@ -10,36 +10,6 @@
 
 int main()
 {
-#if 0
-	char a = -1;
-	printf("%x\n", a);
-	LuaState state = NewLuaState(20, nullptr);
-	state.PushInteger(1);
-	state.PushString("2.0");
-	state.PushString("3.0");
-	state.PushNumber(4.0);
-	PrintStack(state);
-
-	state.Arith(LUA_OPADD); PrintStack(state);
-	state.Arith(LUA_OPBNOT); PrintStack(state);
-	state.Len(2); PrintStack(state);
-	state.Concat(3); PrintStack(state);
-	state.PushBoolean(state.Compare(1, 2, LUA_OPEQ));
-	PrintStack(state);
-#endif
-#if 0
-	LuaState state = NewLuaState();
-	state.PushBoolean(true); PrintStack(state);
-	state.PushInteger(10); PrintStack(state);
-	state.PushNil(); PrintStack(state);
-	state.PushString("hello"); PrintStack(state);
-	state.PushValue(-4); PrintStack(state);
-	state.Replace(3); PrintStack(state);
-	state.SetTop(6); PrintStack(state);
-	state.Remove(-3); PrintStack(state);
-	state.SetTop(-5); PrintStack(state);
-#endif
-#if 1
 	FILE* f = fopen("C:/LearnCompiler/lua-5.3.6/src/hello.luac", "rb");
 	if (f)
 	{
@@ -55,9 +25,8 @@ int main()
 		fclose(f);
 		f = NULL;
 
-		LuaState state = NewLuaState();
-		state.Load(buffer, "", "b");
-		state.Call(0, 0);
+		LuaStatePtr state = NewLuaState();
+		state->Load(buffer, "", "b");
+		state->Call(0, 0);
 	}
-#endif
 }

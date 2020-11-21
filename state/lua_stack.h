@@ -15,144 +15,34 @@ struct LuaStack
 	std::vector<LuaValue> varargs;
 	LuaStackPtr prev;
 	ClosurePtr closure;
+	LuaState* state;
 	int top;
 	int pc;
 
-	LuaStack()
-	{
-		prev = nullptr;
-		closure = nullptr;
-		top = pc = 0;
-	}
-
-	void Check(int n)
-	{
-		int free = (int)slots.size() - top;
-		for(int i = free; i < n; ++i)
-		{
-			slots.push_back(LuaValue::Nil);
-		}
-	}
-
-	void Push(const LuaValue& value)
-	{
-		if(top == (int)slots.size())
-		{
-			panic("stack overflow!");
-		}
-		else
-		{
-			slots[top++] = value;
-		}
-	}
-
-	LuaValue Pop()
-	{
-		if(top < 1)
-		{
-			panic("stack underflow!");
-			return LuaValue::Nil;
-		}
-		else
-		{
-			--top;
-			LuaValue ret = slots[top];
-			slots[top] = LuaValue::Nil;
-			return ret;	
-		}
-	}
-
-	void PushN(const LuaValueArray& vals, int n)
-	{
-		if(n < 0)
-			n = (int)vals.size();
-		for(int i = 0; i < n; ++i)
-		{
-			if(i < (int)vals.size())
-				Push(vals[i]);
-			else
-				Push(LuaValue::Nil);
-		}
-	}
-
-	LuaValueArray PopN(int n)
-	{
-		LuaValueArray vals;
-		vals.resize(n);
-		for(int i = 0; i < n; ++i)
-			vals[i] = Pop();
-		return vals;
-	}
-
-	int AbsIndex(int idx) const
-	{
-		panic_cond(idx != 0, "index out of bound");
-		if(idx >= 0)
-			return idx;
-		else
-		{
-			panic_cond(top + idx >= 0, "index out of bound");
-			return idx + (int)top + 1;
-		}
-	}
-
+	LuaStack();
+	void Check(int n);
+	void Push(const LuaValue& value);
+	LuaValue Pop();
+	void PushN(const LuaValueArray& vals, int n);
+	LuaValueArray PopN(int n);
+	int AbsIndex(int idx) const;
 	// idx here is absoulte index [1,n]
-	bool IsValid(int idx) const
-	{
-		int absIdx = AbsIndex(idx);
-		return absIdx > 0 && absIdx <= top;
-	}
-
+	bool IsValid(int idx) const;
 	// idx here is absoulte index [1,n]
-	LuaValue Get(int idx) const
-	{
-		int absIdx = AbsIndex(idx);
-		if(absIdx > 0 && absIdx <= top)
-		{
-			return slots[absIdx - 1];
-		}
-		else
-		{
-			return LuaValue::Nil;
-		}
-	}
-
+	LuaValue Get(int idx) const;
 	// idx here is absoulte index [1,n]
-	void Set(int idx, const LuaValue& value)
-	{
-		int absIdx = AbsIndex(idx);
-
-		if(absIdx == top + 1)
-			++top;
-
-		if(absIdx > 0 && absIdx <= top)
-		{
-			slots[absIdx - 1] = value;
-		}
-		else
-		{
-			panic("invalid index!");
-		}
-	}
-
+	void Set(int idx, const LuaValue& value);
 	// from and to is internal index
-	void _Reverse(size_t from, size_t to)
-	{
-		while(from < to)
-		{
-			LuaValue temp = slots[from];
-			slots[from] = slots[to];
-			slots[to] = temp;
-		}
-	}
+	void _Reverse(size_t from, size_t to);
 };
 
-inline LuaStackPtr NewLuaStack(int size)
+inline LuaStackPtr NewLuaStack(int size, LuaState* state)
 {
 	LuaStackPtr ret = LuaStackPtr(new LuaStack());
 	ret->slots.resize(size);
 	for(int i = 0; i < size; ++i)
 		ret->slots[i] = LuaValue::Nil;
 	ret->top = 0;
+	ret->state = state;
 	return ret;
 }

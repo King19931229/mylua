@@ -30,9 +30,13 @@ enum CompareOp
 	LUA_OPLE,
 };
 
+struct LuaState;
+using LuaStatePtr = std::shared_ptr<LuaState>;
+
 struct LuaState
 {
 	LuaStackPtr stack;
+	LuaTablePtr registry;
 
 	int GetTop() const
 	{
@@ -421,7 +425,7 @@ struct LuaState
 		int nParams = (int)c->proto->NumParams;
 		bool isVararg = c->proto->IsVararg == 1;
 
-		LuaStackPtr newStack = NewLuaStack(nRegs + 20);
+		LuaStackPtr newStack = NewLuaStack(nRegs + LUA_MINSTACK, stack->state);
 		// Assign the function
 		newStack->closure = c;
 
@@ -451,6 +455,28 @@ struct LuaState
 		}
 	}
 
+	void CallCClosure(int nArgs, int nResults, ClosurePtr c)
+	{
+		LuaStackPtr newStack = NewLuaStack(nArgs + LUA_MINSTACK, stack->state);
+		newStack->closure = c;
+
+		LuaValueArray args = stack->PopN(nArgs);
+		newStack->PushN(args, nArgs);
+		// Throw away the C closure
+		stack->Pop();
+
+		PushLuaStack(newStack);
+		int r = c->cFunc(this);
+		PopLuaStack();
+
+		if(nResults != 0)
+		{
+			LuaValueArray results = newStack->PopN(r);
+			newStack->Check((int)results.size());
+			stack->PushN(results, nResults);
+		}
+	}
+
 	void Call(int nArgs, int nResults)
 	{
 		// closure func
@@ -461,12 +487,40 @@ struct LuaState
 			printf("call %s<%d,%d>\n", c->proto->Source.c_str(),
 				c->proto->LineDefined,
 			 	c->proto->LastLineDefined);
-			CallLuaClosure(nArgs, nResults, c);
+			if(c->proto != nullptr)
+				CallLuaClosure(nArgs, nResults, c);
+			else
+				CallCClosure(nArgs, nResults, c);		
 		}
 		else
 		{
 			warning("not function");
 		}
+	}
+
+	void PushCFunction(CFunction c)
+	{
+		stack->Push(LuaValue(NewCClosure(c)));
+	}
+
+	bool IsCFunction(int idx)
+	{
+		LuaValue val = stack->Get(idx);
+		if(val.IsClosure())
+		{
+			return val.closure->cFunc != nullptr;
+		}
+		return false;
+	}
+
+	CFunction ToCFunction(int idx)
+	{
+		LuaValue val = stack->Get(idx);
+		if(val.IsClosure())
+		{
+			return val.closure->cFunc;
+		}
+		return nullptr;
 	}
 
 	/*
@@ -514,12 +568,21 @@ struct LuaState
 
 using LuaVM = LuaState;
 
-inline LuaState NewLuaState()
+inline LuaStatePtr NewLuaState()
 {
-	return LuaState
-	{
-		NewLuaStack(20)
-	};
+	LuaTablePtr registry = NewLuaTable(0, 0);
+	registry->Put(LuaValue(LUA_RIDX_GLOBALS), LuaValue(NewLuaTable(0, 0)));
+
+	LuaStatePtr ls = LuaStatePtr(new LuaState
+		{
+			nullptr,
+			registry
+		}
+	);
+
+	ls->PushLuaStack(NewLuaStack(LUA_MINSTACK, ls.get()));
+
+	return ls;
 }
 
 inline void PrintStack(LuaState& state)
