@@ -5,6 +5,7 @@
 #include "vm/inst_operators.h"
 #include "vm/inst_table.h"
 #include "vm/inst_call.h"
+#include "vm/inst_upvalue.h"
 #include "vm/opcodes.h"
 
 const OpCode opcodes[47] =
@@ -16,7 +17,7 @@ const OpCode opcodes[47] =
 	,MAKE_OP_CODE(0, 1, OpArgU, OpArgU, iABC, LOADBOOL, __inst_misc__::loadBool)
 	,MAKE_OP_CODE(0, 1, OpArgU, OpArgN, iABC, LOADNIL, __inst_misc__::loadNil)
 	,MAKE_OP_CODE(0, 1, OpArgU, OpArgN, iABC, GETUPVAL, nullptr)
-	,MAKE_OP_CODE(0, 1, OpArgU, OpArgK, iABC, GETTABUP, nullptr)
+	,MAKE_OP_CODE(0, 1, OpArgU, OpArgK, iABC, GETTABUP, __upvalue_inst__::getTabUp)
 	,MAKE_OP_CODE(0, 1, OpArgR, OpArgK, iABC, GETTABLE, __table_insts__::getTable)
 	,MAKE_OP_CODE(0, 0, OpArgK, OpArgK, iABC, SETTABUP, nullptr)
 	,MAKE_OP_CODE(0, 0, OpArgU, OpArgN, iABC, SETUPVAL, nullptr)

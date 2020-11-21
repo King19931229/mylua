@@ -1,6 +1,7 @@
 #pragma once
 #include "lua_value.h"
 #include <vector>
+#include <map>
 #include <cmath>
 
 struct LuaTable
@@ -21,8 +22,11 @@ struct LuaTable
 		return v;
 	}
 
-	LuaValue _GetFromMap(const LuaValue& key) const
+	const LuaValue& _GetFromMap(const LuaValue& key) const
 	{
+		size_t hash = key.Hash();
+		printf("%d\n", hash);
+
 		auto it = map.find(key);
 		if(it != map.end())
 			return it->second;
@@ -71,7 +75,7 @@ struct LuaTable
 		}
 	}
 
-	LuaValue Get(const LuaValue& _key) const
+	const LuaValue& Get(const LuaValue& _key) const
 	{
 		LuaValue key = _FloatToInteger(_key);
 		if(key.IsInt64())
@@ -120,7 +124,9 @@ struct LuaTable
 
 		if(val != LuaValue::Nil)
 		{
-			map.insert({key, val});
+			size_t hash = key.Hash();
+			printf("%d\n", hash);
+			map[key] = val;
 		}
 		else
 		{

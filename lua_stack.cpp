@@ -6,6 +6,33 @@
 const LuaValue LuaValue::NoValue(LUA_TNONE);
 const LuaValue LuaValue::Nil(LUA_TNIL);
 
+size_t LuaValue::Hash() const
+{
+	size_t hash = 0;
+	HashCombine(hash, tag);
+	HashCombine(hash, integer);
+	HashCombine(hash, isfloat);
+	HashCombine(hash, _BKDR(str.c_str(), str.length()));
+	HashCombine(hash, table ? (size_t)table.get() : 0);
+	// Don't be stupid to hash the closure pointer
+	if(closure)
+	{
+		if(closure->proto)
+		{
+			HashCombine(hash, (size_t)closure->proto.get());
+		}
+		else if(closure->cFunc)
+		{
+			HashCombine(hash, (size_t)closure->cFunc);
+		}
+		else
+		{
+			HashCombine(hash, 0);
+		}
+	}
+	return hash;
+}
+
 LuaStack::LuaStack()
 {
 	prev = nullptr;
@@ -145,8 +172,9 @@ void LuaStack::Set(int idx, const LuaValue& value)
 
 	int absIdx = AbsIndex(idx);
 
-	if(absIdx == top + 1)
+	while(absIdx > top)
 		++top;
+	panic_cond(top <= (int)slots.size(), "top out of bound");
 
 	if(absIdx > 0 && absIdx <= top)
 	{

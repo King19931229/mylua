@@ -12,17 +12,17 @@ using ClosurePtr = std::shared_ptr<Closure>;
 
 struct LuaValue
 {
-	LuaType tag;
+	LuaType tag = LUA_TNONE;
 	union
 	{
 		bool boolean;
-		Int64 integer;
+		Int64 integer = 0;
 		Float64 number;
 	};
-	bool isfloat;
+	bool isfloat = false;
 	std::string str;
-	LuaTablePtr table;
-	ClosurePtr closure;
+	LuaTablePtr table = nullptr;
+	ClosurePtr closure = nullptr;
 
 	const static LuaValue NoValue;
 	const static LuaValue Nil;
@@ -65,17 +65,7 @@ struct LuaValue
 		return hash;
 	}
 
-	size_t Hash() const
-	{
-		size_t hash = 0;
-		HashCombine(hash, tag);
-		HashCombine(hash, integer);
-		HashCombine(hash, isfloat);
-		HashCombine(hash, _BKDR(str.c_str(), str.length()));
-		HashCombine(hash, table ? (size_t)table.get() : 0);
-		HashCombine(hash, closure ? (size_t)closure.get() : 0);
-		return hash;
-	}
+	size_t Hash() const;
 
 	bool operator==(const LuaValue& rhs) const { return Hash() == rhs.Hash(); }
 	bool operator<(const LuaValue& rhs) const { return Hash() < rhs.Hash(); }
@@ -84,17 +74,22 @@ struct LuaValue
 	bool operator>(const LuaValue& rhs) const { return !(*this <= rhs); }
 	bool operator>=(const LuaValue& rhs) const { return !(*this < rhs); }
 
+	LuaValue(const LuaValue& rhs) = default;
+	LuaValue(LuaValue&& rhs) = default;
+	LuaValue& operator=(const LuaValue& rhs) = default;
+	LuaValue& operator=(LuaValue&& rhs) = default;
+
 	explicit LuaValue()
 	{
 		tag = LUA_TNONE;
-		integer = false;
+		integer = 0;
 		isfloat = false;
 	}
 
 	explicit LuaValue(LuaType _tag)
 	{
 		tag = _tag;
-		integer = false;
+		integer = 0;
 		isfloat = false;
 	}
 
@@ -122,6 +117,7 @@ struct LuaValue
 	explicit LuaValue(const String& value)
 	{
 		tag = LUA_TSTRING;
+		integer = 0;
 		str = value;
 		isfloat = false;
 	}
@@ -129,6 +125,7 @@ struct LuaValue
 	explicit LuaValue(LuaTablePtr t)
 	{
 		tag = LUA_TTABLE;
+		integer = 0;
 		table = t;
 		isfloat = false;
 	}
@@ -136,6 +133,7 @@ struct LuaValue
 	explicit LuaValue(ClosurePtr c)
 	{
 		tag = LUA_TFUNCTION;
+		integer = 0;
 		closure = c;
 		isfloat = false;
 	}

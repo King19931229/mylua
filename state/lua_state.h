@@ -140,24 +140,6 @@ struct LuaState
 	void PushNumber(Float64 n) { stack->Push(LuaValue(n)); }
 	void PushString(const String& str){ stack->Push(LuaValue(str)); }
 
-	static String TypeName(LuaType tp)
-	{
-		switch (tp)
-		{
-			case LUA_TNONE: return "no value";
-			case LUA_TNIL: return "nil";
-			case LUA_TBOOLEAN: return "boolean";
-			case LUA_TNUMBER: return "number";
-			case LUA_TSTRING: return "string";
-			case LUA_TTABLE: return "table";
-			case LUA_TFUNCTION: return "function";	
-			case LUA_TTHREAD: return "thread";
-			case LUA_TLIGHTUSERDATA:
-			case LUA_TUSERDATA:
-			default: return "userdata";
-		}
-	}
-
 	LuaType Type(int idx) const
 	{
 		if(stack->IsValid(idx))
@@ -323,6 +305,11 @@ struct LuaState
 	{
 		if(t.IsTable())
 		{
+			// void* p = t.table.get();
+			// if(p == nullptr)
+			// {
+			// 	panic("debug");
+			// }
 			LuaValue v = t.table->Get(k);
 			stack->Push(v);
 			return v.tag;
@@ -357,6 +344,11 @@ struct LuaState
 	{
 		if(t.IsTable())
 		{
+			// void* p = t.table.get();
+			// if(p == nullptr)
+			// {
+			// 	panic("debug");
+			// }
 			t.table->Put(k, v);
 		}
 		else
@@ -484,9 +476,17 @@ struct LuaState
 		if(val.IsClosure())
 		{
 			ClosurePtr c = val.closure;
-			printf("call %s<%d,%d>\n", c->proto->Source.c_str(),
-				c->proto->LineDefined,
-			 	c->proto->LastLineDefined);
+			if(c->proto)
+			{
+				printf("call %s<%d,%d>\n", c->proto->Source.c_str(),
+					c->proto->LineDefined,
+			 		c->proto->LastLineDefined);
+			}
+			else
+			{
+				printf("call cfunction\n");
+			}
+			
 			if(c->proto != nullptr)
 				CallLuaClosure(nArgs, nResults, c);
 			else
@@ -521,6 +521,39 @@ struct LuaState
 			return val.closure->cFunc;
 		}
 		return nullptr;
+	}
+
+	void PushGlobalTable()
+	{
+		LuaValue global = registry->Get(LuaValue(LUA_RIDX_GLOBALS));
+
+		// void* p1 = registry.get();
+		// void* p2 = global.table.get();
+		// if(p1 == p2)
+		// {
+		// 	panic("debug");
+		// }
+
+		stack->Push(global);
+	}
+
+	LuaType GetGlobal(const String& name)
+	{
+		LuaValue t = registry->Get(LuaValue(LUA_RIDX_GLOBALS));
+		return _GetTable(t, LuaValue(name));
+	}
+
+	void SetGlobal(const String& name)
+	{
+		LuaValue t = registry->Get(LuaValue(LUA_RIDX_GLOBALS));
+		LuaValue v = stack->Pop();
+		_SetTable(t, LuaValue(name), v);
+	}
+
+	void Register(const String& name, CFunction f)
+	{
+		PushCFunction(f);
+		SetGlobal(name);		
 	}
 
 	/*
@@ -571,7 +604,15 @@ using LuaVM = LuaState;
 inline LuaStatePtr NewLuaState()
 {
 	LuaTablePtr registry = NewLuaTable(0, 0);
-	registry->Put(LuaValue(LUA_RIDX_GLOBALS), LuaValue(NewLuaTable(0, 0)));
+	LuaValue global = LuaValue(NewLuaTable(0, 0));
+	registry->Put(LuaValue(LUA_RIDX_GLOBALS), global);
+
+	// void* p1 = registry.get();
+	// void* p2 = global.table.get();
+	// if(p1 == p2)
+	// {
+	// 	panic("debug");
+	// }
 
 	LuaStatePtr ls = LuaStatePtr(new LuaState
 		{
@@ -596,7 +637,7 @@ inline void PrintStack(LuaState& state)
 			case LUA_TBOOLEAN: printf("[%s]", Format::FromBool(state.ToBoolean(i)).c_str()); break;
 			case LUA_TNUMBER: printf("[%s]", Format::FromFloat64(state.ToNumber(i)).c_str()); break;
 			case LUA_TSTRING: printf("[%s]", state.ToString(i).c_str()); break;
-			default: printf("[%s]",  state.TypeName(t).c_str()); break;
+			default: printf("[%s]", TypeName(t).c_str()); break;
 		}
 	}
 	puts("");

@@ -8,6 +8,33 @@
 #include "number/parser.h"
 #include "state/api_arith.h"
 
+int print(LuaState* ls)
+{
+	int nArgs = ls->GetTop();
+	for(int i = 1; i <= nArgs; ++i)
+	{
+		if(ls->IsBoolean(i))
+		{
+			printf("%s", Format::FromBool(ls->ToBoolean(i)).c_str());
+		}
+		else if(ls->IsString(i))
+		{
+			printf("%s", ls->ToString(i).c_str());
+		}
+		else
+		{
+			printf("%s", TypeName(ls->Type(i)).c_str());
+		}
+		if(i < nArgs)
+		{
+			printf("\t");
+		}
+	}
+
+	puts("");
+	return 0;
+}
+
 int main()
 {
 	FILE* f = fopen("C:/LearnCompiler/lua-5.3.6/src/hello.luac", "rb");
@@ -26,7 +53,8 @@ int main()
 		f = NULL;
 
 		LuaStatePtr state = NewLuaState();
-		state->Load(buffer, "", "b");
+		state->Register("print", print);
+		state->Load(buffer, "chunk", "b");
 		state->Call(0, 0);
 	}
 }
