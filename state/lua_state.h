@@ -305,11 +305,6 @@ struct LuaState
 	{
 		if(t.IsTable())
 		{
-			// void* p = t.table.get();
-			// if(p == nullptr)
-			// {
-			// 	panic("debug");
-			// }
 			LuaValue v = t.table->Get(k);
 			stack->Push(v);
 			return v.tag;
@@ -344,11 +339,6 @@ struct LuaState
 	{
 		if(t.IsTable())
 		{
-			// void* p = t.table.get();
-			// if(p == nullptr)
-			// {
-			// 	panic("debug");
-			// }
 			t.table->Put(k, v);
 		}
 		else
@@ -526,14 +516,6 @@ struct LuaState
 	void PushGlobalTable()
 	{
 		LuaValue global = registry->Get(LuaValue(LUA_RIDX_GLOBALS));
-
-		// void* p1 = registry.get();
-		// void* p2 = global.table.get();
-		// if(p1 == p2)
-		// {
-		// 	panic("debug");
-		// }
-
 		stack->Push(global);
 	}
 
@@ -606,13 +588,6 @@ inline LuaStatePtr NewLuaState()
 	LuaTablePtr registry = NewLuaTable(0, 0);
 	LuaValue global = LuaValue(NewLuaTable(0, 0));
 	registry->Put(LuaValue(LUA_RIDX_GLOBALS), global);
-
-	// void* p1 = registry.get();
-	// void* p2 = global.table.get();
-	// if(p1 == p2)
-	// {
-	// 	panic("debug");
-	// }
 
 	LuaStatePtr ls = LuaStatePtr(new LuaState
 		{

@@ -57,4 +57,5 @@ int main()
 		state->Load(buffer, "chunk", "b");
 		state->Call(0, 0);
 	}
+	system("pause");
 }

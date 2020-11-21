@@ -24,9 +24,6 @@ struct LuaTable
 
 	const LuaValue& _GetFromMap(const LuaValue& key) const
 	{
-		size_t hash = key.Hash();
-		printf("%d\n", hash);
-
 		auto it = map.find(key);
 		if(it != map.end())
 			return it->second;
@@ -124,8 +121,6 @@ struct LuaTable
 
 		if(val != LuaValue::Nil)
 		{
-			size_t hash = key.Hash();
-			printf("%d\n", hash);
 			map[key] = val;
 		}
 		else
