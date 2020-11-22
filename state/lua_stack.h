@@ -6,13 +6,10 @@
 #include <vector>
 #include <assert.h>
 
-struct LuaStack;
-using LuaStackPtr = std::shared_ptr<LuaStack>;
-
 struct LuaStack
 {
-	std::vector<LuaValue> slots;
-	std::vector<LuaValue> varargs;
+	std::vector<LuaValuePtr> slots;
+	LuaValueArray varargs;
 	LuaStackPtr prev;
 	ClosurePtr closure;
 	LuaState* state;
@@ -41,7 +38,7 @@ inline LuaStackPtr NewLuaStack(int size, LuaState* state)
 	LuaStackPtr ret = LuaStackPtr(new LuaStack());
 	ret->slots.resize(size);
 	for(int i = 0; i < size; ++i)
-		ret->slots[i] = LuaValue::Nil;
+		ret->slots[i] = LuaValue::NilPtr;
 	ret->top = 0;
 	ret->state = state;
 	return ret;

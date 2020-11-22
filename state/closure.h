@@ -21,8 +21,6 @@ struct Closure
 	}
 };
 
-using ClosurePtr = std::shared_ptr<Closure>;
-
 inline ClosurePtr NewLuaClosure(PrototypePtr proto)
 {
 	return ClosurePtr(new Closure(proto));

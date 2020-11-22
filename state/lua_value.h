@@ -4,12 +4,6 @@
 #include <memory>
 #include <unordered_map>
 
-struct LuaTable;
-using LuaTablePtr = std::shared_ptr<LuaTable>;
-
-struct Closure;
-using ClosurePtr = std::shared_ptr<Closure>;
-
 struct LuaValue
 {
 	LuaType tag = LUA_TNONE;
@@ -26,6 +20,8 @@ struct LuaValue
 
 	const static LuaValue NoValue;
 	const static LuaValue Nil;
+	const static LuaValuePtr NoValuePtr;
+	const static LuaValuePtr NilPtr;
 
 	inline bool IsInt64() const { return tag == LUA_TNUMBER && !isfloat; }
 	inline bool IsFloat64() const { return tag == LUA_TNUMBER && isfloat; }
@@ -139,7 +135,8 @@ struct LuaValue
 	}
 };
 
-typedef std::vector<LuaValue> LuaValueArray;
+inline LuaValuePtr NewLuaValue(const LuaValue& val) { return LuaValuePtr(new LuaValue(val)); }
+using LuaValueArray = std::vector<LuaValue>;
 
 namespace std
 {

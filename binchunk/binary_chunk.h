@@ -75,9 +75,6 @@ struct LocVar
 	UInt32 EndPC;
 };
 
-struct Prototype;
-using PrototypePtr = std::shared_ptr<Prototype>;
-
 struct Prototype
 {
 	String Source;

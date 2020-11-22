@@ -2,6 +2,7 @@
 #include <string>
 #include <cstring>
 #include <vector>
+#include <memory>
 #include <stdarg.h>
 
 using Byte = unsigned char;
@@ -14,6 +15,24 @@ static_assert(sizeof(Int64) == 8, "size check");
 using Float64 = double;
 using String = std::string;
 using ByteArray = std::vector<Byte>;
+
+struct LuaTable;
+using LuaTablePtr = std::shared_ptr<LuaTable>;
+
+struct Closure;
+using ClosurePtr = std::shared_ptr<Closure>;
+
+struct LuaValue;
+using LuaValuePtr = std::shared_ptr<LuaValue>;
+
+struct LuaStack;
+using LuaStackPtr = std::shared_ptr<LuaStack>;
+
+struct LuaState;
+using LuaStatePtr = std::shared_ptr<LuaState>;
+
+struct Prototype;
+using PrototypePtr = std::shared_ptr<Prototype>;
 
 inline void panic(const char* message)
 {

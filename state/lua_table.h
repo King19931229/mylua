@@ -6,8 +6,8 @@
 
 struct LuaTable
 {
-	std::vector<LuaValue> arr;
-	std::unordered_map<LuaValue, LuaValue> map;
+	std::vector<LuaValuePtr> arr;
+	std::unordered_map<LuaValue, LuaValuePtr> map;
 
 	static LuaValue _FloatToInteger(const LuaValue& v)
 	{
@@ -22,12 +22,12 @@ struct LuaTable
 		return v;
 	}
 
-	const LuaValue& _GetFromMap(const LuaValue& key) const
+	const LuaValuePtr _GetFromMap(const LuaValue& key) const
 	{
 		auto it = map.find(key);
 		if(it != map.end())
 			return it->second;
-		return LuaValue::Nil;
+		return LuaValue::NilPtr;
 	}
 
 	void _EraseKeyFromMap(const LuaValue& key)
@@ -43,7 +43,7 @@ struct LuaTable
 		size_t size = arr.size();
 		while(size > 0)
 		{
-			const LuaValue& val = arr[size - 1];
+			const LuaValue& val = *arr[size - 1];
 			if(val != LuaValue::Nil)
 				break;
 			--size;
@@ -65,14 +65,14 @@ struct LuaTable
 			}
 			else
 			{
-				LuaValue val = it->second;
+				LuaValuePtr val = it->second;
 				it = map.erase(it);
 				arr.push_back(val);
 			}
 		}
 	}
 
-	const LuaValue& Get(const LuaValue& _key) const
+	const LuaValuePtr Get(const LuaValue& _key) const
 	{
 		LuaValue key = _FloatToInteger(_key);
 		if(key.IsInt64())
@@ -86,13 +86,15 @@ struct LuaTable
 		return _GetFromMap(key);
 	}
 
-	void Put(const LuaValue& _key, const LuaValue& val)
+	void Put(const LuaValue& _key, const LuaValue& _val)
 	{
 		if(_key == LuaValue::Nil)
 			panic("table index is nil!");
 		if(_key.IsFloat64() && std::isnan(_key.number))
 			panic("table index is NAN!");
+
 		LuaValue key = _FloatToInteger(_key);
+		LuaValuePtr val = NewLuaValue(_val);
 
 		if(key.IsInt64())
 		{
@@ -102,14 +104,14 @@ struct LuaTable
 				if(idx <= arr.size())
 				{
 					arr[idx - 1] = val;
-					if(idx == arr.size() && val == LuaValue::Nil)
+					if(idx == arr.size() && *val == LuaValue::Nil)
 						_ShrinkArray();
 					return;
 				}
 				else if(idx == arr.size() + 1)
 				{
 					_EraseKeyFromMap(key);
-					if(val != LuaValue::Nil)
+					if(*val != LuaValue::Nil)
 					{
 						arr.push_back(val);
 						_ExpandArray();
@@ -119,7 +121,7 @@ struct LuaTable
 			}
 		}
 
-		if(val != LuaValue::Nil)
+		if(*val != LuaValue::Nil)
 		{
 			map[key] = val;
 		}

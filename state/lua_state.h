@@ -30,9 +30,6 @@ enum CompareOp
 	LUA_OPLE,
 };
 
-struct LuaState;
-using LuaStatePtr = std::shared_ptr<LuaState>;
-
 struct LuaState
 {
 	LuaStackPtr stack;
@@ -305,9 +302,9 @@ struct LuaState
 	{
 		if(t.IsTable())
 		{
-			LuaValue v = t.table->Get(k);
-			stack->Push(v);
-			return v.tag;
+			LuaValuePtr v = t.table->Get(k);
+			stack->Push(*v);
+			return v->tag;
 		}
 		else
 		{
@@ -515,19 +512,19 @@ struct LuaState
 
 	void PushGlobalTable()
 	{
-		LuaValue global = registry->Get(LuaValue(LUA_RIDX_GLOBALS));
+		LuaValue global = *registry->Get(LuaValue(LUA_RIDX_GLOBALS));
 		stack->Push(global);
 	}
 
 	LuaType GetGlobal(const String& name)
 	{
-		LuaValue t = registry->Get(LuaValue(LUA_RIDX_GLOBALS));
+		LuaValue t = *registry->Get(LuaValue(LUA_RIDX_GLOBALS));
 		return _GetTable(t, LuaValue(name));
 	}
 
 	void SetGlobal(const String& name)
 	{
-		LuaValue t = registry->Get(LuaValue(LUA_RIDX_GLOBALS));
+		LuaValue t = *registry->Get(LuaValue(LUA_RIDX_GLOBALS));
 		LuaValue v = stack->Pop();
 		_SetTable(t, LuaValue(name), v);
 	}

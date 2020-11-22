@@ -6,6 +6,9 @@
 const LuaValue LuaValue::NoValue(LUA_TNONE);
 const LuaValue LuaValue::Nil(LUA_TNIL);
 
+const LuaValuePtr LuaValue::NoValuePtr(NewLuaValue(LuaValue(LUA_TNONE)));
+const LuaValuePtr LuaValue::NilPtr(NewLuaValue(LuaValue(LUA_TNIL)));
+
 size_t LuaValue::Hash() const
 {
 	size_t hash = 0;
@@ -46,7 +49,7 @@ void LuaStack::Check(int n)
 	int free = (int)slots.size() - top;
 	for(int i = free; i < n; ++i)
 	{
-		slots.push_back(LuaValue::Nil);
+		slots.push_back(LuaValue::NilPtr);
 	}
 }
 
@@ -58,7 +61,7 @@ void LuaStack::Push(const LuaValue& value)
 	}
 	else
 	{
-		slots[top++] = value;
+		slots[top++] = NewLuaValue(value);
 	}
 }
 
@@ -72,9 +75,9 @@ LuaValue LuaStack::Pop()
 	else
 	{
 		--top;
-		LuaValue ret = slots[top];
-		slots[top] = LuaValue::Nil;
-		return ret;	
+		LuaValuePtr ret = slots[top];
+		slots[top] = LuaValue::NilPtr;
+		return *ret;	
 	}
 }
 
@@ -137,7 +140,7 @@ void LuaStack::_Reverse(size_t from, size_t to)
 {
 	while(from < to)
 	{
-		LuaValue temp = slots[from];
+		LuaValuePtr temp = slots[from];
 		slots[from] = slots[to];
 		slots[to] = temp;
 	}
@@ -153,7 +156,7 @@ LuaValue LuaStack::Get(int idx) const
 	int absIdx = AbsIndex(idx);
 	if(absIdx > 0 && absIdx <= top)
 	{
-		return slots[absIdx - 1];
+		return *slots[absIdx - 1];
 	}
 	else
 	{
@@ -172,13 +175,13 @@ void LuaStack::Set(int idx, const LuaValue& value)
 
 	int absIdx = AbsIndex(idx);
 
-	while(absIdx > top)
-		++top;
+	if(absIdx > top)
+		top = absIdx;
 	panic_cond(top <= (int)slots.size(), "top out of bound");
 
 	if(absIdx > 0 && absIdx <= top)
 	{
-		slots[absIdx - 1] = value;
+		slots[absIdx - 1] = NewLuaValue(value);
 	}
 	else
 	{
