@@ -37,3 +37,5 @@ static constexpr int LUA_MINSTACK = 20;
 static constexpr int LUAI_MAXSTACK = 1000000;
 static constexpr int LUA_REGISTRYINDEX = -LUAI_MAXSTACK - 1000;
 static constexpr Int64 LUA_RIDX_GLOBALS = 2;
+
+inline int LuaUpvalueIndex(int i) { return LUA_REGISTRYINDEX - i; }

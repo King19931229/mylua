@@ -65,19 +65,19 @@ void LuaStack::Push(const LuaValue& value)
 	}
 }
 
-LuaValue LuaStack::Pop()
+LuaValuePtr LuaStack::Pop()
 {
 	if(top < 1)
 	{
 		panic("stack underflow!");
-		return LuaValue::Nil;
+		return LuaValue::NilPtr;
 	}
 	else
 	{
 		--top;
 		LuaValuePtr ret = slots[top];
 		slots[top] = LuaValue::NilPtr;
-		return *ret;	
+		return ret;
 	}
 }
 
@@ -99,7 +99,7 @@ LuaValueArray LuaStack::PopN(int n)
 	LuaValueArray vals;
 	vals.resize(n);
 	for(int i = 0; i < n; ++i)
-		vals[i] = Pop();
+		vals[i] = *Pop();
 	return vals;
 }
 
@@ -123,12 +123,15 @@ int LuaStack::AbsIndex(int idx) const
 	}
 }
 
-// idx here is absoulte index [1,n]
+// idx here is absoulte index [1,+oo]
 bool LuaStack::IsValid(int idx) const
 {
-	if(idx == /* or <= */ LUA_REGISTRYINDEX)
+	if(idx < LUA_REGISTRYINDEX)
 	{
-		return true;
+		int uvIdx = LUA_REGISTRYINDEX - idx - 1;
+		if(closure != nullptr && uvIdx < (int)closure->upvals.size())
+			return true;
+		return false;
 	}
 
 	int absIdx = AbsIndex(idx);
@@ -148,9 +151,12 @@ void LuaStack::_Reverse(size_t from, size_t to)
 
 LuaValue LuaStack::Get(int idx) const
 {
-	if(idx == LUA_REGISTRYINDEX)
+	if(idx < LUA_REGISTRYINDEX)
 	{
-		return LuaValue(state->registry);
+		int uvIdx = LUA_REGISTRYINDEX - idx - 1;
+		if(closure == nullptr || uvIdx >= (int)closure->upvals.size())
+			return LuaValue::Nil;
+		return *closure->upvals[uvIdx].val;
 	}
 
 	int absIdx = AbsIndex(idx);
@@ -166,10 +172,13 @@ LuaValue LuaStack::Get(int idx) const
 
 void LuaStack::Set(int idx, const LuaValue& value)
 {
-	if(idx == LUA_REGISTRYINDEX)
+	if(idx < LUA_REGISTRYINDEX)
 	{
-		if(value.IsTable())
-			state->registry = value.table;
+		int uvIdx = LUA_REGISTRYINDEX - idx - 1;
+		if(closure != nullptr && uvIdx < (int)closure->upvals.size())
+		{
+			*closure->upvals[uvIdx].val = value;
+		}
 		return;
 	}
 

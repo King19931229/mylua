@@ -17,9 +17,10 @@ struct __inst_misc__
 		int a = std::get<0>(asbx);
 		int sbx = std::get<1>(asbx);
 		vm->AddPC(sbx);
-		// about upvalue
 		if(a != 0)
-			panic("todo");
+		{
+			vm->CloseUpvalues(a);
+		}
 	}
 
 	static void loadNil(Instruction i, LuaVM* vm)

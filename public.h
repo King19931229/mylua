@@ -34,6 +34,11 @@ using LuaStatePtr = std::shared_ptr<LuaState>;
 struct Prototype;
 using PrototypePtr = std::shared_ptr<Prototype>;
 
+struct UpValue;
+using UpValuePtr = std::shared_ptr<UpValue>;
+
+using LuaVM = LuaState;
+
 inline void panic(const char* message)
 {
 	printf("panic exit: %s\n", message);

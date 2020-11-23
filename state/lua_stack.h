@@ -9,6 +9,7 @@
 struct LuaStack
 {
 	std::vector<LuaValuePtr> slots;
+	std::unordered_map<int, UpValue> openuvs;
 	LuaValueArray varargs;
 	LuaStackPtr prev;
 	ClosurePtr closure;
@@ -19,7 +20,7 @@ struct LuaStack
 	LuaStack();
 	void Check(int n);
 	void Push(const LuaValue& value);
-	LuaValue Pop();
+	LuaValuePtr Pop();
 	void PushN(const LuaValueArray& vals, int n);
 	LuaValueArray PopN(int n);
 	int AbsIndex(int idx) const;

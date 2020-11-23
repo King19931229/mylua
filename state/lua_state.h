@@ -72,7 +72,7 @@ struct LuaState
 	// Pop the value from the top, and set it back the stack by the index(so the index should be > 0)
 	void Replace(int idx)
 	{
-		LuaValue val = stack->Pop();
+		LuaValue val = *stack->Pop();
 		stack->Set(idx, val);
 	}
 
@@ -221,10 +221,10 @@ struct LuaState
 
 	void Arith(ArithOp op)
 	{
-		LuaValue b = stack->Pop();
+		LuaValue b = *stack->Pop();
 		LuaValue a;
 		if(op != LUA_OPUNM && op != LUA_OPBNOT)
-			a = stack->Pop();
+			a = *stack->Pop();
 		else
 			a = b;
 		Operator operaotr = operators[op];
@@ -316,7 +316,7 @@ struct LuaState
 	LuaType GetTable(int idx)
 	{
 		LuaValue t = stack->Get(idx);
-		LuaValue k = stack->Pop();
+		LuaValue k = *stack->Pop();
 		return _GetTable(t, k);
 	}
 
@@ -347,22 +347,22 @@ struct LuaState
 	void SetTable(int idx)
 	{
 		LuaValue t = stack->Get(idx);
-		LuaValue v = stack->Pop();
-		LuaValue k = stack->Pop();
+		LuaValue v = *stack->Pop();
+		LuaValue k = *stack->Pop();
 		_SetTable(t, k, v);
 	}
 
 	void SetField(int idx, const String& k)
 	{
 		LuaValue t = stack->Get(idx);
-		LuaValue v = stack->Pop();
+		LuaValue v = *stack->Pop();
 		_SetTable(t, LuaValue(k), LuaValue(v));
 	}
 
 	void SetI(int idx, Int64 i)
 	{
 		LuaValue t = stack->Get(idx);
-		LuaValue v = stack->Pop();
+		LuaValue v = *stack->Pop();
 		_SetTable(t, LuaValue(i), LuaValue(v));
 	}
 
@@ -384,6 +384,11 @@ struct LuaState
 		PrototypePtr proto = Undump(chunk);
 		ClosurePtr closure = NewLuaClosure(proto);
 		stack->Push(LuaValue(closure));
+		if(proto->Upvalues.size() > 0)
+		{
+			LuaValuePtr env = registry->Get(LuaValue(LUA_RIDX_GLOBALS));
+			closure->upvals[0] = UpValue(env);
+		}
 		return 0;
 	}
 
@@ -485,9 +490,15 @@ struct LuaState
 		}
 	}
 
-	void PushCFunction(CFunction c)
+	void PushCFunction(CFunction c, int n)
 	{
-		stack->Push(LuaValue(NewCClosure(c)));
+		ClosurePtr closure = NewCClosure(c, n);
+		for(int i = n; i > 0; --i)
+		{
+			LuaValuePtr val = stack->Pop();
+			closure->upvals[i - 1] = UpValue(val);
+		}
+		stack->Push(LuaValue(closure));
 	}
 
 	bool IsCFunction(int idx)
@@ -525,13 +536,13 @@ struct LuaState
 	void SetGlobal(const String& name)
 	{
 		LuaValue t = *registry->Get(LuaValue(LUA_RIDX_GLOBALS));
-		LuaValue v = stack->Pop();
+		LuaValue v = *stack->Pop();
 		_SetTable(t, LuaValue(name), v);
 	}
 
 	void Register(const String& name, CFunction f)
 	{
-		PushCFunction(f);
+		PushCFunction(f, 0);
 		SetGlobal(name);		
 	}
 
@@ -539,8 +550,11 @@ struct LuaState
 	interfaces for luavm
 	*/
 	int PC() const { return stack->pc; }
+
 	void AddPC(int n) { stack->pc += n; }
+
 	UInt32 Fetch() { return stack->closure->proto->Code[stack->pc++]; }
+
 	void GetConst(int idx)
 	{
 		Constant c = stack->closure->proto->Constants[idx];
@@ -554,6 +568,7 @@ struct LuaState
 			case TAG_LONG_STR: stack->Push(LuaValue(c.str)); break;
 		}
 	}
+
 	void GetRK(int rk)
 	{
 		if(rk > 0xFF)
@@ -563,6 +578,7 @@ struct LuaState
 	}
 
 	int RegisterCount() const { return stack->closure->proto->MaxStackSize;	}
+
 	void LoadVararg(int n)
 	{
 		if(n < 0)
@@ -570,15 +586,55 @@ struct LuaState
 		stack->Check(n);
 		stack->PushN(stack->varargs, n);
 	}
+
 	void LoadProto(int idx)
 	{
-		PrototypePtr proto = stack->closure->proto->Protos[idx];
-		ClosurePtr closure = NewLuaClosure(proto);
+		PrototypePtr subProto = stack->closure->proto->Protos[idx];
+		ClosurePtr closure = NewLuaClosure(subProto);
 		stack->Push(LuaValue(closure));
+
+		for(size_t i = 0; i < subProto->Upvalues.size(); ++i)
+		{
+			const Upvalue& uvInfo = subProto->Upvalues[i];
+			int uvIdx = uvInfo.Idx;
+
+			if(uvInfo.Instack == 1)
+			{
+				auto it = stack->openuvs.find(uvIdx);
+				if(it == stack->openuvs.end())
+				{
+					closure->upvals[i] = UpValue(stack->slots[uvIdx]);
+					stack->openuvs[uvIdx] = closure->upvals[i];
+				}
+				else
+				{
+					closure->upvals[i] = it->second;
+				}
+			}
+			else
+			{
+				// stack->closure(Father closure)
+				closure->upvals[i] = stack->closure->upvals[uvIdx];
+			}
+		}
+	}
+
+	void CloseUpvalues(int a)
+	{
+		for(auto it = stack->openuvs.begin(); it != stack->openuvs.end();)
+		{
+			int i = it->first;
+			if(i >= a - 1)
+			{
+				it = stack->openuvs.erase(it);
+			}
+			else
+			{
+				++it;
+			}
+		}
 	}
 };
-
-using LuaVM = LuaState;
 
 inline LuaStatePtr NewLuaState()
 {

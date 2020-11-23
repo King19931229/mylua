@@ -90,7 +90,6 @@ enum OpArgMask
 
 struct Instruction;
 struct LuaState;
-using LuaVM = LuaState;
 
 /* 9-bits 9-bits 8-bits 6-bits */
 struct OpCode
