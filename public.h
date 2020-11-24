@@ -50,6 +50,12 @@ inline void warning(const char* message)
 	printf("warning: %s\n", message);
 }
 
+#ifdef _DEBUG
+	#define DEBUG_PRINT(...) printf("[Debug] "); printf(__VA_ARGS__); printf("\n");
+#else
+	#define DEBUG_PRINT(...)
+#endif
+
 #define panic_cond(COND, message)\
 do\
 {\

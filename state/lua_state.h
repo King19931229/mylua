@@ -394,9 +394,11 @@ struct LuaState
 
 	void RunLuaClosure()
 	{
+		DEBUG_PRINT("Run Lua Closure");
 		while(true)
 		{
 			Instruction inst = Instruction(Fetch());
+			DEBUG_PRINT("%s", inst.OpName().c_str());
 			inst.Execute(this);
 			if(inst.Opcode() == OP_RETURN)
 				break;
@@ -419,6 +421,8 @@ struct LuaState
 		LuaValueArray funcAndArgs = stack->PopN(nArgs + 1);
 		// Push the non varargs arguments
 		newStack->PushN(Slice(funcAndArgs, 1, funcAndArgs.size()), nParams);
+		panic_cond(nRegs >= nParams, "nRegs is less than nParams");
+		newStack->top = nRegs;
 		if(nArgs > nParams && isVararg)
 		{
 			// Assign the varargs arguments
@@ -470,13 +474,13 @@ struct LuaState
 			ClosurePtr c = val.closure;
 			if(c->proto)
 			{
-				printf("call %s<%d,%d>\n", c->proto->Source.c_str(),
+				DEBUG_PRINT("call %s<%d,%d>", c->proto->Source.c_str(),
 					c->proto->LineDefined,
 			 		c->proto->LastLineDefined);
 			}
 			else
 			{
-				printf("call cfunction\n");
+				DEBUG_PRINT("call c function");
 			}
 			
 			if(c->proto != nullptr)

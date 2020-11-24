@@ -146,6 +146,8 @@ void LuaStack::_Reverse(size_t from, size_t to)
 		LuaValuePtr temp = slots[from];
 		slots[from] = slots[to];
 		slots[to] = temp;
+		++from;
+		--to;
 	}
 }
 
