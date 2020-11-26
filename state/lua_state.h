@@ -230,20 +230,29 @@ struct LuaState
 		Operator operaotr = operators[op];
 		LuaValue res = _Arith(a, b, operaotr);
 		if(res != LuaValue::Nil)
+		{
 			stack->Push(res);
-		else
-			panic("arithmetic error!");
+			return;
+		}
+		// Call method only if value can not be converted into number
+		const String& mm = operaotr.metamethod;
+		auto metaRes = CallMetamethod(a, b, mm, this);
+		if(std::get<1>(metaRes))
+		{
+			stack->Push(std::get<0>(metaRes));
+		}
+		panic("arithmetic error!");
 	}
 
-	bool Compare(int idx1, int idx2, CompareOp op) const
+	bool Compare(int idx1, int idx2, CompareOp op)
 	{
 		LuaValue a = stack->Get(idx1);
 		LuaValue b = stack->Get(idx2);
 		switch (op)
 		{
-			case LUA_OPEQ: return _eq(a, b);
-			case LUA_OPLT: return _lt(a, b);
-			case LUA_OPLE: return _le(a, b);
+			case LUA_OPEQ: return _eq(a, b, this);
+			case LUA_OPLT: return _lt(a, b, this);
+			case LUA_OPLE: return _le(a, b, this);
 			default: panic("invalid compare op!"); return false;
 		}
 	}
@@ -253,10 +262,22 @@ struct LuaState
 		LuaValue val = stack->Get(idx);
 		if(val.IsString())
 			stack->Push(LuaValue((Int64)val.str.length()));
-		else if(val.IsTable())
-			stack->Push(LuaValue((Int64)val.table->Len()));
 		else
-			panic("length error!");
+		{
+			auto metaRes = CallMetamethod(val, val, "__len", this);
+			if(std::get<1>(metaRes))
+			{
+				stack->Push(std::get<0>(metaRes));
+			}
+			else if(val.IsTable())
+			{
+				stack->Push(LuaValue((Int64)val.table->Len()));
+			}
+			else
+			{
+				panic("length error!");
+			}
+		}
 	}
 
 	void Concat(int n)
@@ -278,6 +299,16 @@ struct LuaState
 					stack->Push(LuaValue(s1 + s2));
 					continue;
 				}
+
+				LuaValue b = *stack->Pop();
+				LuaValue a = *stack->Pop();
+				auto metaRes = CallMetamethod(a, b, "__concat", this);
+				if(std::get<1>(metaRes))
+				{
+					stack->Push(std::get<0>(metaRes));
+					continue;
+				}
+
 				panic("concatenation error!");
 			}
 		}
@@ -482,11 +513,11 @@ struct LuaState
 			{
 				DEBUG_PRINT("call c function");
 			}
-			
+
 			if(c->proto != nullptr)
 				CallLuaClosure(nArgs, nResults, c);
 			else
-				CallCClosure(nArgs, nResults, c);		
+				CallCClosure(nArgs, nResults, c);
 		}
 		else
 		{

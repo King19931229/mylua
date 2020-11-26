@@ -10,6 +10,7 @@ typedef Float64 (*FloatFunc)(Float64, Float64);
 
 struct Operator
 {
+	String metamethod;
 	IntegerFunc IntegerFunc;
 	FloatFunc FloatFunc;
 };

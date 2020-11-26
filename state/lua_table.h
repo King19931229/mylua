@@ -8,6 +8,7 @@ struct LuaTable
 {
 	std::vector<LuaValuePtr> arr;
 	std::unordered_map<LuaValue, LuaValuePtr> map;
+	LuaTablePtr metatable;
 
 	static LuaValue _FloatToInteger(const LuaValue& v)
 	{
@@ -140,3 +141,8 @@ inline LuaTablePtr NewLuaTable(int nArr, int nRec)
 	t->arr.resize(nArr);
 	return t;
 }
+
+void SetMetatable(LuaValue& val, LuaTablePtr mt, LuaState* ls);
+LuaTablePtr GetMatatable(const LuaValue& val, const LuaState* ls);
+std::tuple<LuaValue, bool> CallMetamethod(const LuaValue& a, const LuaValue& b,	const String& mmName, LuaState* ls);
+LuaValue GetMetafield(const LuaValue& val, const String& fieldName, const LuaState* ls);

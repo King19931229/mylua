@@ -87,20 +87,20 @@ struct __funcs__
 
 const Operator operators[14] =
 {
-	Operator{__funcs__::iadd, __funcs__::fadd},
-	Operator{__funcs__::isub, __funcs__::fsub},
-	Operator{__funcs__::imul, __funcs__::fmul},
-	Operator{__funcs__::imod, __funcs__::fmod},
-	Operator{nullptr, __funcs__::pow},
-	Operator{nullptr, __funcs__::div},
-	Operator{__funcs__::iidiv, __funcs__::fidiv},
-	Operator{__funcs__::band, nullptr},
-	Operator{__funcs__::bor, nullptr},
-	Operator{__funcs__::bxor, nullptr},
-	Operator{__funcs__::shl, nullptr},
-	Operator{__funcs__::shr, nullptr},
-	Operator{__funcs__::iunm, __funcs__::funm},
-	Operator{__funcs__::bnot, nullptr},
+	Operator{"__add", __funcs__::iadd, __funcs__::fadd},
+	Operator{"__sub", __funcs__::isub, __funcs__::fsub},
+	Operator{"__mul",__funcs__::imul, __funcs__::fmul},
+	Operator{"__mod", __funcs__::imod, __funcs__::fmod},
+	Operator{"__pow", nullptr, __funcs__::pow},
+	Operator{"__div", nullptr, __funcs__::div},
+	Operator{"__idiv", __funcs__::iidiv, __funcs__::fidiv},
+	Operator{"__band", __funcs__::band, nullptr},
+	Operator{"__bor", __funcs__::bor, nullptr},
+	Operator{"__bxor", __funcs__::bxor, nullptr},
+	Operator{"__shl", __funcs__::shl, nullptr},
+	Operator{"__shr", __funcs__::shr, nullptr},
+	Operator{"__unm", __funcs__::iunm, __funcs__::funm},
+	Operator{"__bnot", __funcs__::bnot, nullptr},
 };
 
 void Instruction::Execute(LuaVM *vm)
@@ -110,4 +110,58 @@ void Instruction::Execute(LuaVM *vm)
 		action(*this, vm);
 	else
 		warning(OpName().c_str());
+}
+
+void SetMetatable(LuaValue& val, LuaTablePtr mt, LuaState* ls)
+{
+	if(val.IsTable())
+	{
+		val.table = mt;
+		return;
+	}
+	String key = Format::FormatString("_MT%d", val.tag);
+	ls->registry->Put(LuaValue(key), LuaValue(mt));
+}
+
+LuaTablePtr GetMatatable(const LuaValue& val, const LuaState* ls)
+{
+	if(val.IsTable())
+	{
+		return val.table->metatable;
+	}
+	String key = Format::FormatString("_MT%d", val.tag);
+	LuaValuePtr mt = ls->registry->Get(LuaValue(key));
+	if(mt && mt->IsTable())
+	{
+		return mt->table;
+	}
+	return nullptr;
+}
+
+std::tuple<LuaValue, bool> CallMetamethod(const LuaValue& a, const LuaValue& b,
+		const String& mmName, LuaState* ls)
+{
+	LuaValue mm;
+	mm = GetMetafield(a, mmName, ls);
+	if(mm == LuaValue::Nil)
+		mm = GetMetafield(b, mmName, ls);
+	if(mm == LuaValue::Nil)
+		return std::make_tuple(LuaValue::Nil, false);
+	
+	ls->stack->Check(4);
+	ls->stack->Push(mm);
+	ls->stack->Push(a);
+	ls->stack->Push(b);
+	ls->Call(2, 1);
+	return std::make_tuple(*ls->stack->Pop(), true);
+}
+
+LuaValue GetMetafield(const LuaValue& val, const String& fieldName, const LuaState* ls)
+{
+	LuaTablePtr mt = GetMatatable(val, ls);
+	if(mt)
+	{
+		return *mt->Get(LuaValue(fieldName));
+	}
+	return LuaValue::Nil;
 }

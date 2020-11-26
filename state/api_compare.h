@@ -2,7 +2,7 @@
 #include "api/consts.h"
 #include "state/lua_value.h"
 
-inline bool _eq(const LuaValue& a, const LuaValue& b)
+inline bool _eq(const LuaValue& a, const LuaValue& b, LuaState* ls)
 {
 	switch (a.tag)
 	{
@@ -30,11 +30,23 @@ inline bool _eq(const LuaValue& a, const LuaValue& b)
 			}
 			return false;
 		}
+		case LUA_TTABLE:
+		{
+			if(b.tag == LUA_TTABLE && a != b && ls != nullptr)
+			{
+				auto metaRes = CallMetamethod(a, b, "__eq", ls);
+				if(std::get<1>(metaRes))
+				{
+					return ConvertToBoolean(std::get<0>(metaRes));
+				}
+			}
+			return a == b;
+		}
 		default: return a == b;
 	}
 }
 
-inline bool _lt(const LuaValue& a, const LuaValue& b)
+inline bool _lt(const LuaValue& a, const LuaValue& b, LuaState* ls)
 {
 	switch (a.tag)
 	{
@@ -62,11 +74,18 @@ inline bool _lt(const LuaValue& a, const LuaValue& b)
 		}
 		default: break;
 	}
+
+	auto metaRes = CallMetamethod(a, b, "__lt", ls);
+	if(std::get<1>(metaRes))
+	{
+		return ConvertToBoolean(std::get<0>(metaRes));
+	}
+
 	panic("comparsion error!");
 	return false;
 }
 
-inline bool _le(const LuaValue& a, const LuaValue& b)
+inline bool _le(const LuaValue& a, const LuaValue& b, LuaState* ls)
 {
 	switch (a.tag)
 	{
@@ -94,6 +113,21 @@ inline bool _le(const LuaValue& a, const LuaValue& b)
 		}
 		default: break;
 	}
+
+	auto metaRes = CallMetamethod(a, b, "__le", ls);
+	if(std::get<1>(metaRes))
+	{
+		return ConvertToBoolean(std::get<0>(metaRes));
+	}
+	else
+	{
+		metaRes = CallMetamethod(b, a, "__lt", ls);
+		if(std::get<1>(metaRes))
+		{
+			return !ConvertToBoolean(std::get<0>(metaRes));
+		}
+	}
+
 	panic("comparsion error!");
 	return false;
 }
