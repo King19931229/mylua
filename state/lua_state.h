@@ -94,7 +94,7 @@ struct LuaState
 	void Rotate(int idx, int n)
 	{
 		size_t t = stack->top - 1;
-		size_t p = idx - 1;
+		size_t p = stack->AbsIndex(idx) - 1;
 		size_t m = (n >= 0) ? (t - n) : (p - n - 1);
 		stack->_Reverse(p, m);
 		stack->_Reverse(m + 1, t);
