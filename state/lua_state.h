@@ -30,6 +30,9 @@ enum CompareOp
 	LUA_OPLE,
 };
 
+
+void PrintStack(LuaState& state);
+
 struct LuaState
 {
 	LuaStackPtr stack;
@@ -240,6 +243,7 @@ struct LuaState
 		if(std::get<1>(metaRes))
 		{
 			stack->Push(std::get<0>(metaRes));
+			return;
 		}
 		panic("arithmetic error!");
 	}
@@ -250,11 +254,18 @@ struct LuaState
 		LuaValue b = stack->Get(idx2);
 		switch (op)
 		{
-			case LUA_OPEQ: return _eq(a, b, this);
-			case LUA_OPLT: return _lt(a, b, this);
-			case LUA_OPLE: return _le(a, b, this);
+			case LUA_OPEQ: return _eq(a, b, this, false);
+			case LUA_OPLT: return _lt(a, b, this, false);
+			case LUA_OPLE: return _le(a, b, this, false);
 			default: panic("invalid compare op!"); return false;
 		}
+	}
+
+	bool RawEqual(int idx1, int idx2)
+	{
+		LuaValue a = stack->Get(idx1);
+		LuaValue b = stack->Get(idx2);
+		return _eq(a, b, this, true);
 	}
 
 	void Len(int idx)
@@ -278,6 +289,15 @@ struct LuaState
 				panic("length error!");
 			}
 		}
+	}
+
+	void RawLen(int idx)
+	{
+		LuaValue val = stack->Get(idx);
+		if(val.IsString())
+			stack->Push(LuaValue((Int64)val.str.length()));
+		else
+			panic("length error!");
 	}
 
 	void Concat(int n)
@@ -329,50 +349,118 @@ struct LuaState
 		CreateTable(0, 0);
 	}
 
-	LuaType _GetTable(const LuaValue& t, const LuaValue& k)
+	LuaType _GetTable(const LuaValue& t, const LuaValue& k, bool raw)
 	{
 		if(t.IsTable())
 		{
-			LuaValuePtr v = t.table->Get(k);
-			stack->Push(*v);
-			return v->tag;
+			LuaValue v = *t.table->Get(k);
+			if(raw || v != LuaValue::Nil || !t.table->HasMetafield("__index"))
+			{
+				stack->Push(v);
+				return v.tag;
+			}
 		}
-		else
+
+		if(!raw)
 		{
-			panic("not a table!");
-			return LUA_TNONE;
+			LuaValue mf = GetMetafield(t, "__index", this);
+			if(mf != LuaValue::Nil)
+			{
+				switch (mf.tag)
+				{
+					case LUA_TTABLE:
+					{
+						return _GetTable(mf, k, false);
+					}
+					case LUA_TFUNCTION:
+					{
+						stack->Push(mf);
+						stack->Push(t);
+						stack->Push(k);
+						Call(2, 1);
+						LuaValue v = stack->Get(-1);
+						return v.tag;
+					}
+					default:
+						break;
+				}
+			}
 		}
+
+		panic("index error!");
+		return LUA_TNONE;
 	}
 
 	LuaType GetTable(int idx)
 	{
 		LuaValue t = stack->Get(idx);
 		LuaValue k = *stack->Pop();
-		return _GetTable(t, k);
+		return _GetTable(t, k, false);
 	}
 
 	LuaType GetField(int idx, const String& k)
 	{
 		LuaValue t = stack->Get(idx);
-		return _GetTable(t, LuaValue(k));
+		return _GetTable(t, LuaValue(k), false);
+	}
+
+	LuaType RawGetField(int idx, const String& k)
+	{
+		LuaValue t = stack->Get(idx);
+		return _GetTable(t, LuaValue(k), true);
 	}
 
 	LuaType GetI(int idx, Int64 k)
 	{
 		LuaValue t = stack->Get(idx);
-		return _GetTable(t, LuaValue(k));
+		return _GetTable(t, LuaValue(k), false);
 	}
 
-	void _SetTable(const LuaValue& t, const LuaValue& k, const LuaValue& v)
+	LuaType RawGetI(int idx, Int64 k)
+	{
+		LuaValue t = stack->Get(idx);
+		return _GetTable(t, LuaValue(k), true);
+	}
+
+	void _SetTable(const LuaValue& t, const LuaValue& k, const LuaValue& v, bool raw)
 	{
 		if(t.IsTable())
 		{
-			t.table->Put(k, v);
+			LuaTablePtr tbl = t.table;
+			if(raw || *tbl->Get(k) != LuaValue::Nil || !tbl->HasMetafield("__newindex"))
+			{
+				t.table->Put(k, v);
+				return;
+			}
 		}
-		else
+
+		if(!raw)
 		{
-			panic("not a table!");
+			LuaValue mf = GetMetafield(t, "__newindex", this);
+			if(mf != LuaValue::Nil)
+			{
+				switch (mf.tag)
+				{
+					case LUA_TTABLE:
+					{
+						return _SetTable(mf, k, v, false);
+					}
+					case LUA_TFUNCTION:
+					{
+						stack->Push(mf);
+						stack->Push(t);
+						stack->Push(k);
+						stack->Push(v);
+						Call(3, 0);
+						return;
+					}
+					default:
+						break;
+				}
+			}
 		}
+
+		panic("index error!");
 	}
 
 	void SetTable(int idx)
@@ -380,21 +468,28 @@ struct LuaState
 		LuaValue t = stack->Get(idx);
 		LuaValue v = *stack->Pop();
 		LuaValue k = *stack->Pop();
-		_SetTable(t, k, v);
+		_SetTable(t, k, v, false);
 	}
 
 	void SetField(int idx, const String& k)
 	{
 		LuaValue t = stack->Get(idx);
 		LuaValue v = *stack->Pop();
-		_SetTable(t, LuaValue(k), LuaValue(v));
+		_SetTable(t, LuaValue(k), LuaValue(v), false);
 	}
 
 	void SetI(int idx, Int64 i)
 	{
 		LuaValue t = stack->Get(idx);
 		LuaValue v = *stack->Pop();
-		_SetTable(t, LuaValue(i), LuaValue(v));
+		_SetTable(t, LuaValue(i), LuaValue(v), false);
+	}
+
+	void RawSetI(int idx, Int64 i)
+	{
+		LuaValue t = stack->Get(idx);
+		LuaValue v = *stack->Pop();
+		_SetTable(t, LuaValue(i), LuaValue(v), true);
 	}
 
 	void PushLuaStack(LuaStackPtr s)
@@ -429,8 +524,15 @@ struct LuaState
 		while(true)
 		{
 			Instruction inst = Instruction(Fetch());
+#if DEBUG_PRINT_ENABLE
 			DEBUG_PRINT("%s", inst.OpName().c_str());
+			Prototype::PrintOperands(inst);
+			puts("");
+#endif
 			inst.Execute(this);
+#if DEBUG_PRINT_ENABLE
+			PrintStack(*this);
+#endif
 			if(inst.Opcode() == OP_RETURN)
 				break;
 		}
@@ -500,6 +602,22 @@ struct LuaState
 	{
 		// closure func
 		LuaValue val = stack->Get(-(nArgs + 1));
+
+		if(!val.IsClosure())
+		{
+			LuaValue mf = GetMetafield(val, "__call", this);
+			if(mf != LuaValue::Nil)
+			{
+				if(mf.IsClosure())
+				{
+					stack->Push(mf);
+					Insert(-(nArgs + 2));
+					nArgs += 1;
+					val = mf;
+				}
+			}
+		}
+
 		if(val.IsClosure())
 		{
 			ClosurePtr c = val.closure;
@@ -521,7 +639,7 @@ struct LuaState
 		}
 		else
 		{
-			warning("not function");
+			panic("not a function");
 		}
 	}
 
@@ -565,20 +683,53 @@ struct LuaState
 	LuaType GetGlobal(const String& name)
 	{
 		LuaValue t = *registry->Get(LuaValue(LUA_RIDX_GLOBALS));
-		return _GetTable(t, LuaValue(name));
+		return _GetTable(t, LuaValue(name), true);
 	}
 
 	void SetGlobal(const String& name)
 	{
 		LuaValue t = *registry->Get(LuaValue(LUA_RIDX_GLOBALS));
 		LuaValue v = *stack->Pop();
-		_SetTable(t, LuaValue(name), v);
+		_SetTable(t, LuaValue(name), v, true);
 	}
 
 	void Register(const String& name, CFunction f)
 	{
 		PushCFunction(f, 0);
-		SetGlobal(name);		
+		SetGlobal(name);
+	}
+
+	bool GetMetatable(int idx)
+	{
+		LuaValue val = stack->Get(idx);
+		LuaTablePtr mt = ::GetMetatable(val, this);
+		if(mt)
+		{
+			stack->Push(LuaValue(mt));
+			return true;
+		}
+		else
+		{
+			return false;
+		}
+	}
+
+	void SetMetatable(int idx)
+	{
+		LuaValue val = stack->Get(idx);
+		LuaValue mtVal = *stack->Pop();
+		if(mtVal == LuaValue::Nil)
+		{
+			::SetMetatable(val, LuaTable::NilPtr, this);
+		}
+		else if(mtVal.IsTable())
+		{
+			::SetMetatable(val, mtVal.table, this);
+		}
+		else
+		{
+			panic("table expected!"); // todo
+		}
 	}
 
 	/*
@@ -687,21 +838,4 @@ inline LuaStatePtr NewLuaState()
 	ls->PushLuaStack(NewLuaStack(LUA_MINSTACK, ls.get()));
 
 	return ls;
-}
-
-inline void PrintStack(LuaState& state)
-{
-	int top = state.GetTop();
-	for(int i = 1; i <= top; ++i)
-	{
-		LuaType t = state.Type(i);
-		switch(t)
-		{
-			case LUA_TBOOLEAN: printf("[%s]", Format::FromBool(state.ToBoolean(i)).c_str()); break;
-			case LUA_TNUMBER: printf("[%s]", Format::FromFloat64(state.ToNumber(i)).c_str()); break;
-			case LUA_TSTRING: printf("[%s]", state.ToString(i).c_str()); break;
-			default: printf("[%s]", TypeName(t).c_str()); break;
-		}
-	}
-	puts("");
 }

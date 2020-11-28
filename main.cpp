@@ -35,6 +35,22 @@ int print(LuaState* ls)
 	return 0;
 }
 
+int getMetatable(LuaState* ls)
+{
+	if(!ls->GetMetatable(1))
+	{
+		ls->PushNil();
+	}
+	return 1;
+}
+
+int setMetatable(LuaState* ls)
+{
+	ls->SetMetatable(1);
+	// return the value itself
+	return 1;
+}
+
 int main()
 {
 	FILE* f = fopen("C:/LearnCompiler/lua-5.3.6/src/hello.luac", "rb");
@@ -54,6 +70,8 @@ int main()
 
 		LuaStatePtr state = NewLuaState();
 		state->Register("print", print);
+		state->Register("getmetatable", getMetatable);
+		state->Register("setmetatable", setMetatable);
 		state->Load(buffer, "chunk", "b");
 		state->Call(0, 0);
 	}

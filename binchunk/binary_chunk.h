@@ -107,7 +107,7 @@ struct Prototype
 		Protos.size());
 	}
 
-	void PrintOperands(const Instruction& i) const
+	static void PrintOperands(const Instruction& i)
 	{
 		switch(i.OpMode())
 		{

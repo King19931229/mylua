@@ -10,6 +10,8 @@ struct LuaTable
 	std::unordered_map<LuaValue, LuaValuePtr> map;
 	LuaTablePtr metatable;
 
+	static const LuaTablePtr NilPtr;
+
 	static LuaValue _FloatToInteger(const LuaValue& v)
 	{
 		if(v.IsFloat64())
@@ -133,16 +135,26 @@ struct LuaTable
 	}
 
 	size_t Len() const { return arr.size(); }
+
+	bool HasMetafield(const String& fieldName) const
+	{
+		if(metatable)
+		{
+			return metatable->Get(LuaValue(fieldName)) != LuaValue::NilPtr;
+		}
+		return false;
+	}
 };
 
 inline LuaTablePtr NewLuaTable(int nArr, int nRec)
 {
 	LuaTablePtr t = LuaTablePtr(new LuaTable());
 	t->arr.resize(nArr);
+	DEBUG_PRINT("new table: 0x%x", (size_t)t.get());
 	return t;
 }
 
 void SetMetatable(LuaValue& val, LuaTablePtr mt, LuaState* ls);
-LuaTablePtr GetMatatable(const LuaValue& val, const LuaState* ls);
+LuaTablePtr GetMetatable(const LuaValue& val, const LuaState* ls);
 std::tuple<LuaValue, bool> CallMetamethod(const LuaValue& a, const LuaValue& b,	const String& mmName, LuaState* ls);
 LuaValue GetMetafield(const LuaValue& val, const String& fieldName, const LuaState* ls);

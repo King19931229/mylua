@@ -71,7 +71,7 @@ struct __funcs__
 	static Float64 fmul(Float64 a, Float64 b) { return a * b; }
 	static Int64 imod(Int64 a, Int64 b) { return IMod(a, b); }
 	static Float64 fmod(Float64 a, Float64 b) { return FMod(a, b); }
-	static Float64 pow(Float64 a, Float64 b) { return pow(a, b); }
+	static Float64 pow(Float64 a, Float64 b) { return ::pow(a, b); }
 	static Float64 div(Float64 a, Float64 b) { return a / b; }
 	static Int64 iidiv(Int64 a, Int64 b) { return IFloorDiv(a, b); }
 	static Float64 fidiv(Float64 a, Float64 b) { return FFloorDiv(a, b); }
@@ -116,17 +116,19 @@ void SetMetatable(LuaValue& val, LuaTablePtr mt, LuaState* ls)
 {
 	if(val.IsTable())
 	{
-		val.table = mt;
+		DEBUG_PRINT("SetMetatable: 0x%x 0x%x\n", (size_t)val.table.get(), (size_t)mt.get());
+		val.table->metatable = mt;
 		return;
 	}
 	String key = Format::FormatString("_MT%d", val.tag);
 	ls->registry->Put(LuaValue(key), LuaValue(mt));
 }
 
-LuaTablePtr GetMatatable(const LuaValue& val, const LuaState* ls)
+LuaTablePtr GetMetatable(const LuaValue& val, const LuaState* ls)
 {
 	if(val.IsTable())
 	{
+		DEBUG_PRINT("GetMetatable: 0x%x\n", (size_t)val.table.get());
 		return val.table->metatable;
 	}
 	String key = Format::FormatString("_MT%d", val.tag);
@@ -158,7 +160,7 @@ std::tuple<LuaValue, bool> CallMetamethod(const LuaValue& a, const LuaValue& b,
 
 LuaValue GetMetafield(const LuaValue& val, const String& fieldName, const LuaState* ls)
 {
-	LuaTablePtr mt = GetMatatable(val, ls);
+	LuaTablePtr mt = GetMetatable(val, ls);
 	if(mt)
 	{
 		return *mt->Get(LuaValue(fieldName));

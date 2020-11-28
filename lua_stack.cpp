@@ -9,6 +9,8 @@ const LuaValue LuaValue::Nil(LUA_TNIL);
 const LuaValuePtr LuaValue::NoValuePtr(NewLuaValue(LuaValue(LUA_TNONE)));
 const LuaValuePtr LuaValue::NilPtr(NewLuaValue(LuaValue(LUA_TNIL)));
 
+const LuaTablePtr LuaTable::NilPtr(NewLuaTable(0, 0));
+
 size_t LuaValue::Hash() const
 {
 	size_t hash = 0;
@@ -98,7 +100,8 @@ LuaValueArray LuaStack::PopN(int n)
 {
 	LuaValueArray vals;
 	vals.resize(n);
-	for(int i = 0; i < n; ++i)
+	// Be very careful with this storage order
+	for(int i = n - 1; i >= 0; --i)
 		vals[i] = *Pop();
 	return vals;
 }
@@ -107,7 +110,7 @@ int LuaStack::AbsIndex(int idx) const
 {
 	panic_cond(idx != 0, "index out of bound");
 
-	if(idx <= /* or == */ LUA_REGISTRYINDEX)
+	if(idx <= LUA_REGISTRYINDEX)
 	{
 		return idx;
 	}
@@ -198,4 +201,21 @@ void LuaStack::Set(int idx, const LuaValue& value)
 	{
 		panic("invalid index!");
 	}
+}
+
+void PrintStack(LuaState& state)
+{
+	int top = state.GetTop();
+	for(int i = 1; i <= top; ++i)
+	{
+		LuaType t = state.Type(i);
+		switch(t)
+		{
+			case LUA_TBOOLEAN: printf("[%s]", Format::FromBool(state.ToBoolean(i)).c_str()); break;
+			case LUA_TNUMBER: printf("[%s]", Format::FromFloat64(state.ToNumber(i)).c_str()); break;
+			case LUA_TSTRING: printf("[%s]", state.ToString(i).c_str()); break;
+			default: printf("[%s]", TypeName(t).c_str()); break;
+		}
+	}
+	puts("");
 }

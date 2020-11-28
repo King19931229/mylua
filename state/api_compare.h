@@ -2,7 +2,7 @@
 #include "api/consts.h"
 #include "state/lua_value.h"
 
-inline bool _eq(const LuaValue& a, const LuaValue& b, LuaState* ls)
+inline bool _eq(const LuaValue& a, const LuaValue& b, LuaState* ls, bool raw)
 {
 	switch (a.tag)
 	{
@@ -32,7 +32,7 @@ inline bool _eq(const LuaValue& a, const LuaValue& b, LuaState* ls)
 		}
 		case LUA_TTABLE:
 		{
-			if(b.tag == LUA_TTABLE && a != b && ls != nullptr)
+			if(!raw && b.tag == LUA_TTABLE && a != b && ls != nullptr)
 			{
 				auto metaRes = CallMetamethod(a, b, "__eq", ls);
 				if(std::get<1>(metaRes))
@@ -46,7 +46,7 @@ inline bool _eq(const LuaValue& a, const LuaValue& b, LuaState* ls)
 	}
 }
 
-inline bool _lt(const LuaValue& a, const LuaValue& b, LuaState* ls)
+inline bool _lt(const LuaValue& a, const LuaValue& b, LuaState* ls, bool raw)
 {
 	switch (a.tag)
 	{
@@ -75,17 +75,20 @@ inline bool _lt(const LuaValue& a, const LuaValue& b, LuaState* ls)
 		default: break;
 	}
 
-	auto metaRes = CallMetamethod(a, b, "__lt", ls);
-	if(std::get<1>(metaRes))
+	if(!raw)
 	{
-		return ConvertToBoolean(std::get<0>(metaRes));
+		auto metaRes = CallMetamethod(a, b, "__lt", ls);
+		if(std::get<1>(metaRes))
+		{
+			return ConvertToBoolean(std::get<0>(metaRes));
+		}
 	}
 
 	panic("comparsion error!");
 	return false;
 }
 
-inline bool _le(const LuaValue& a, const LuaValue& b, LuaState* ls)
+inline bool _le(const LuaValue& a, const LuaValue& b, LuaState* ls, bool raw)
 {
 	switch (a.tag)
 	{
@@ -114,17 +117,20 @@ inline bool _le(const LuaValue& a, const LuaValue& b, LuaState* ls)
 		default: break;
 	}
 
-	auto metaRes = CallMetamethod(a, b, "__le", ls);
-	if(std::get<1>(metaRes))
+	if(!raw)
 	{
-		return ConvertToBoolean(std::get<0>(metaRes));
-	}
-	else
-	{
-		metaRes = CallMetamethod(b, a, "__lt", ls);
+		auto metaRes = CallMetamethod(a, b, "__le", ls);
 		if(std::get<1>(metaRes))
 		{
-			return !ConvertToBoolean(std::get<0>(metaRes));
+			return ConvertToBoolean(std::get<0>(metaRes));
+		}
+		else
+		{
+			metaRes = CallMetamethod(b, a, "__lt", ls);
+			if(std::get<1>(metaRes))
+			{
+				return !ConvertToBoolean(std::get<0>(metaRes));
+			}
 		}
 	}
 
