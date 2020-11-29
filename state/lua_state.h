@@ -515,7 +515,7 @@ struct LuaState
 			LuaValuePtr env = registry->Get(LuaValue(LUA_RIDX_GLOBALS));
 			closure->upvals[0] = UpValue(env);
 		}
-		return 0;
+		return LUA_OK;
 	}
 
 	void RunLuaClosure()
@@ -732,6 +732,60 @@ struct LuaState
 		}
 	}
 
+	bool Next(int idx)
+	{
+		LuaValue val = stack->Get(idx);
+		if(val.IsTable())
+		{
+			LuaValue key = *stack->Pop();
+			LuaTablePtr tbl = val.table;
+			LuaValue nextKey = tbl->NextKey(key);
+			if(nextKey != LuaValue::Nil)
+			{
+				stack->Push(nextKey);
+				stack->Push(*tbl->Get(nextKey));
+				return true;
+			}
+			return false;
+		}
+		panic("table expected!");
+		return false;
+	}
+
+	int Error()
+	{
+		LuaValue err = *stack->Pop();
+		panic(err.str.c_str());
+		return LUA_ERRRUN;
+	}
+
+	int PCall(int nArgs, int nResults, int msgh)
+	{
+		int status = LUA_ERRRUN;
+		LuaStackPtr caller = stack;
+
+		try
+		{
+			Call(nArgs, nResults);
+			status = LUA_OK;
+		}
+		catch(const String& msg)
+		{
+			while(stack != caller)
+			{
+				PopLuaStack();
+			}
+			stack->Push(LuaValue(msg));
+		}
+		catch(...)
+		{
+			printf("panic\n");
+			exit(0);
+		}
+
+		return status;
+	}
+
 	/*
 	interfaces for luavm
 	*/
@@ -818,26 +872,6 @@ struct LuaState
 				++it;
 			}
 		}
-	}
-
-	bool Next(int idx)
-	{
-		LuaValue val = stack->Get(idx);
-		if(val.IsTable())
-		{
-			LuaValue key = *stack->Pop();
-			LuaTablePtr tbl = val.table;
-			LuaValue nextKey = tbl->NextKey(key);
-			if(nextKey != LuaValue::Nil)
-			{
-				stack->Push(nextKey);
-				stack->Push(*tbl->Get(nextKey));
-				return true;
-			}
-			return false;
-		}
-		panic("table expected!");
-		return false;
 	}
 };
 

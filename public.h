@@ -41,8 +41,9 @@ using LuaVM = LuaState;
 
 inline void panic(const char* message)
 {
-	printf("panic exit: %s\n", message);
-	exit(0);
+	// printf("panic exit: %s\n", message);
+	// exit(0);
+	throw(String(message));
 }
 
 inline void warning(const char* message)

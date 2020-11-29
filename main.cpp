@@ -95,6 +95,20 @@ int ipairs(LuaState* ls)
 	return 3;
 }
 
+int error(LuaState* ls)
+{
+	return ls->Error();
+}
+
+int pcall(LuaState* ls)
+{
+	int nArgs = ls->GetTop() - 1;
+	int status = ls->PCall(nArgs, -1,  0);
+	ls->PushBoolean(status == LUA_OK);
+	ls->Insert(1);
+	return ls->GetTop();
+}
+
 int main()
 {
 	FILE* f = fopen("C:/LearnCompiler/lua-5.3.6/src/hello.luac", "rb");
@@ -119,6 +133,8 @@ int main()
 		state->Register("next", next);
 		state->Register("pairs", pairs);
 		state->Register("ipairs", ipairs);
+		state->Register("error", error);
+		state->Register("pcall", pcall);
 		state->Load(buffer, "chunk", "b");
 		state->Call(0, 0);
 	}
