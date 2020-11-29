@@ -8,6 +8,7 @@ struct LuaTable
 {
 	std::vector<LuaValuePtr> arr;
 	std::unordered_map<LuaValue, LuaValuePtr> map;
+	std::unordered_map<LuaValue, LuaValue> keys;
 	LuaTablePtr metatable;
 
 	static const LuaTablePtr NilPtr;
@@ -144,13 +145,50 @@ struct LuaTable
 		}
 		return false;
 	}
+
+	void _InitKeys()
+	{
+		LuaValue key = LuaValue::Nil;
+		for(size_t i = 0; i < arr.size(); ++i)
+		{
+			LuaValue nextKey = LuaValue((Int64)i + 1);
+			keys.insert({key, nextKey});
+			key = nextKey;
+		}
+		for(const auto& pair : map)
+		{
+			const LuaValue& mapKey = pair.first;
+			keys.insert({key, mapKey});
+			key = mapKey;
+		}
+	}
+
+	LuaValue NextKey(const LuaValue& key)
+	{
+		if(key == LuaValue::Nil || ((arr.size() + map.size() > 0) && keys.empty()))
+		{
+			_InitKeys();
+		}
+
+		auto it = keys.find(key);
+		if(it != keys.end())
+			return it->second;
+		else
+			return LuaValue::Nil;
+	}
 };
 
 inline LuaTablePtr NewLuaTable(int nArr, int nRec)
 {
 	LuaTablePtr t = LuaTablePtr(new LuaTable());
+
 	t->arr.resize(nArr);
-	DEBUG_PRINT("new table: 0x%x", (size_t)t.get());
+	for(int i = 0; i < nArr; ++i)
+	{
+		t->arr[i] = LuaValue::NilPtr;
+	}
+
+	DEBUG_PRINT("new table: 0x%x nArr:%d nRec:%d", (size_t)t.get(), nArr, nRec);
 	return t;
 }
 

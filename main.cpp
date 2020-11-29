@@ -51,6 +51,50 @@ int setMetatable(LuaState* ls)
 	return 1;
 }
 
+int next(LuaState* ls)
+{
+	ls->SetTop(2);
+	if(ls->Next(1))
+	{
+		return 2;
+	}
+	else
+	{
+		ls->PushNil();
+		return 1;
+	}
+}
+
+int pairs(LuaState* ls)
+{
+	ls->PushCFunction(next, 0);
+	ls->PushValue(1);
+	ls->PushNil();
+	return 3;
+}
+
+int _ipairsAux(LuaState* ls)
+{
+	Int64 i = ls->ToInteger(2) + 1;
+	ls->PushInteger(i);
+	if(ls->GetI(1, i) == LUA_TNIL)
+	{
+		return 1;
+	}
+	else
+	{
+		return 2;
+	}
+}
+
+int ipairs(LuaState* ls)
+{
+	ls->PushCFunction(_ipairsAux, 0);
+	ls->PushValue(1);
+	ls->PushNil();
+	return 3;
+}
+
 int main()
 {
 	FILE* f = fopen("C:/LearnCompiler/lua-5.3.6/src/hello.luac", "rb");
@@ -72,6 +116,9 @@ int main()
 		state->Register("print", print);
 		state->Register("getmetatable", getMetatable);
 		state->Register("setmetatable", setMetatable);
+		state->Register("next", next);
+		state->Register("pairs", pairs);
+		state->Register("ipairs", ipairs);
 		state->Load(buffer, "chunk", "b");
 		state->Call(0, 0);
 	}

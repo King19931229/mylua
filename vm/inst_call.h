@@ -144,4 +144,27 @@ struct __call_insts__
 		vm->GetTable(b);
 		vm->Replace(a);
 	}
+
+	static void tForCall(Instruction i, LuaVM* vm)
+	{
+		auto a_c = i.ABC();
+		int a = std::get<0>(a_c) + 1;
+		int c = std::get<2>(a_c);
+
+		_pushFuncAndArgs(a, 3, vm);
+		vm->Call(2, c);
+		_popResults(a + 3, c + 1, vm);
+	}
+
+	static void tForLoop(Instruction i, LuaVM* vm)
+	{
+		auto asBx = i.ABsBx();
+		int a = std::get<0>(asBx) + 1;
+		int sBx = std::get<1>(asBx);
+		if(!vm->IsNil(a + 1))
+		{
+			vm->Copy(a + 1, a);
+			vm->AddPC(sBx);
+		}
+	}
 };

@@ -799,7 +799,6 @@ struct LuaState
 			}
 			else
 			{
-				// stack->closure(Father closure)
 				closure->upvals[i] = stack->closure->upvals[uvIdx];
 			}
 		}
@@ -819,6 +818,26 @@ struct LuaState
 				++it;
 			}
 		}
+	}
+
+	bool Next(int idx)
+	{
+		LuaValue val = stack->Get(idx);
+		if(val.IsTable())
+		{
+			LuaValue key = *stack->Pop();
+			LuaTablePtr tbl = val.table;
+			LuaValue nextKey = tbl->NextKey(key);
+			if(nextKey != LuaValue::Nil)
+			{
+				stack->Push(nextKey);
+				stack->Push(*tbl->Get(nextKey));
+				return true;
+			}
+			return false;
+		}
+		panic("table expected!");
+		return false;
 	}
 };
 
