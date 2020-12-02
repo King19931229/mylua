@@ -96,7 +96,7 @@ struct Format
 		{
 			char *szAllocBuffer = new char[requireBufferSize + 1];
 			memset(szAllocBuffer, 0, requireBufferSize + 1);
-			VSNPRINTF(szAllocBuffer, requireBufferSize/* + 1 - 1 */, pszFormat, list);
+			VSNPRINTF(szAllocBuffer, requireBufferSize, pszFormat, list);
 			format = szAllocBuffer;
 			delete[] szAllocBuffer;
 		}
