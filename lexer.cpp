@@ -1,11 +1,26 @@
 #include "lexer/lexer.h"
 
+#ifdef Error
+#	undef Error
+#endif
+
+#define Error(...)\
+{\
+	String msg = Format::FormatString(__VA_ARGS__);\
+	msg = Format::FormatString("%s:%d %s", chunkName.c_str(), line, msg.c_str());\
+	panic(msg.c_str());\
+}
+
 Lexer::Lexer(const String& _chunk, const String& _chunkName, int _line)
 {
 	chunk = _chunk;
 	chunkName = _chunkName;
 	line = _line;
 	peekIndex = 0;
+
+	nextToken = "";
+	nextTokenKind = 0;
+	nextTokenLine = 0;
 
 	keywords.insert({"and", TOKEN_OP_AND});
 	keywords.insert({"break", TOKEN_KW_BREAK});
@@ -31,22 +46,232 @@ Lexer::Lexer(const String& _chunk, const String& _chunkName, int _line)
 	keywords.insert({"while", TOKEN_KW_WHILE});	
 }
 
-//#define CHECK_OUT_OF_BOUND(index) if(index >= chunk.length()) goto OUT_OUT_BOUND;
-
-void Lexer::NextToken(int& line, int& kind, String& token)
+TokenResult Lexer::NextToken()
 {
+	if(nextTokenLine > 0)
+	{
+		TokenResult res = {nextTokenLine, nextTokenKind, nextToken};
+		line = nextTokenLine;
+		nextTokenLine = 0;
+		return res;
+	}
 
+	SkipWhiteSpaces();
+	if(peekIndex == chunk.length())
+	{
+		return {line, TOKEN_EOF, "EOF"};
+	}
+
+	switch (chunk[peekIndex])
+	{
+		case ';': Next(1); return {line, TOKEN_SEP_SEMI, ";"};
+		case ',': Next(1); return {line, TOKEN_SEP_COMMA, ","};
+		case '(': Next(1); return {line, TOKEN_SEP_LPAREN, "("};
+		case ')': Next(1); return {line, TOKEN_SEP_RPAREN, ")"};
+		case ']': Next(1); return {line, TOKEN_SEP_RBRACK, "]"};
+		case '{': Next(1); return {line, TOKEN_SEP_LCURLY, "{"};
+		case '}': Next(1); return {line, TOKEN_SEP_RCURLY, "}"};
+		case '+': Next(1); return {line, TOKEN_OP_ADD, "+"};
+		case '-': Next(1); return {line, TOKEN_OP_MINUS, "-"};
+		case '*': Next(1); return {line, TOKEN_OP_MUL, "*"};
+		case '^': Next(1); return {line, TOKEN_OP_POW, "^"};
+		case '%': Next(1); return {line, TOKEN_OP_MOD, "%"};
+		case '&': Next(1); return {line, TOKEN_OP_BAND, "&"};
+		case '|': Next(1); return {line, TOKEN_OP_BOR, "|"};
+		case '#': Next(1); return {line, TOKEN_OP_LEN, "#"};
+		case ':':
+		{
+			if(Test("::"))
+			{
+				Next(2); return {line, TOKEN_SEP_LABEL, "::"};
+			}
+			else
+			{
+				Next(1); return {line, TOKEN_SEP_COLON, ":"};
+			}
+		}
+		case '/':
+		{
+			if(Test("//"))
+			{
+				Next(2); return {line, TOKEN_OP_IDIV, "//"};
+			}
+			else
+			{
+				Next(1); return {line, TOKEN_OP_DIV, "/"};
+			}
+		}
+		case '~':
+		{
+			if(Test("~="))
+			{
+				Next(2); return {line, TOKEN_OP_NE, "~="};
+			}
+			else
+			{
+				Next(1); return {line, TOKEN_OP_WAVE, "~"};
+			}
+		}
+		case '=':
+		{
+			if(Test("=="))
+			{
+				Next(2); return {line, TOKEN_OP_EQ, "=="};
+			}
+			else
+			{
+				Next(1); return {line, TOKEN_OP_ASSIGN, "="};
+			}
+		}
+		case '<':
+		{
+			if(Test("<="))
+			{
+				Next(2); return {line, TOKEN_OP_LE, "<="};
+			}
+			else if(Test("<<"))
+			{
+				Next(2); return {line, TOKEN_OP_SHL, "<<"};
+			}
+			else
+			{
+				Next(1); return {line, TOKEN_OP_LT, "<"};
+			}
+		}
+		case '>':
+		{
+			if(Test(">="))
+			{
+				Next(2); return {line, TOKEN_OP_GE, ">="};
+			}
+			else if(Test(">>"))
+			{
+				Next(2); return {line, TOKEN_OP_SHR, ">>"};
+			}
+			else
+			{
+				Next(1); return {line, TOKEN_OP_GT, ">"};
+			}
+		}
+		case '.':
+		{
+			if(Test("..."))
+			{
+				Next(3); return {line, TOKEN_VARARG, "..."};
+			}
+			else if(Test(".."))
+			{
+				Next(2); return {line, TOKEN_OP_CONCAT, ".."};
+			}
+			else if(peekIndex == chunk.length() - 1 || !IsDigit(chunk[peekIndex + 1]))
+			{
+				Next(1); return {line, TOKEN_SEP_DOT, "."};
+			}
+		}
+		case '[':
+		{
+			if(Test("[[") || Test("[="))
+			{
+				return {line, TOKEN_STRING, ScanLongString()};
+			}
+			else
+			{
+				Next(1); return {line, TOKEN_SEP_LBRACK, "["};
+			}
+		}
+		case '\'':
+		case '\"':
+		{
+			return {line, TOKEN_STRING, ScanShortString()};
+		}
+	}
+
+	Byte c = chunk[peekIndex];
+	if(c == '.' || IsDigit(c))
+	{
+		return {line, TOKEN_NUMBER, ScanNumber()};
+	}
+	if(c == '_' || IsLetter(c))
+	{
+		String token = ScanIdentifier();
+		auto it = keywords.find(token);
+		if(it != keywords.end())
+		{
+			TokenKind kind = TokenKind(it->second);
+			return {line, kind, token};
+		}
+		else
+		{
+			return {line, TOKEN_IDENTIFIER, token};
+		}
+	}
+
+	Error("unreachable!");
+	return {line, TOKEN_EOF, "EOF"};
 }
 
-#ifdef Error
-#	undef Error
-#endif
+TokenKindResult Lexer::NextTokenKind(int kind)
+{
+	TokenResult res = NextToken();
+	if(res.kind != kind)
+	{
+		Error("syntax error near '%s'", res.token);
+	}
+	return {res.line, res.token};
+}
 
-#define Error(...)\
-{\
-	String msg = Format::FormatString(__VA_ARGS__);\
-	msg = Format::FormatString("%s:%d %s", chunkName.c_str(), line, msg.c_str());\
-	panic(msg.c_str());\
+TokenKindResult Lexer::NextIdentifier()
+{
+	return NextTokenKind(TOKEN_IDENTIFIER);
+}
+
+int Lexer::Line()
+{
+	return line;
+}
+
+int Lexer::LookAhead()
+{
+	if(nextTokenLine > 0)
+	{
+		return nextTokenKind;
+	}
+	int currentLine = line;
+	TokenResult res = NextToken();
+	line = currentLine;
+	nextTokenLine = res.line;
+	nextTokenKind = res.kind;
+	nextToken = res.token;
+	return nextTokenKind;
+}
+
+void Lexer::SkipWhiteSpaces()
+{
+	while(peekIndex < chunk.length())
+	{
+		if(Test("--"))
+		{
+			SkipComment();
+		}
+		else if(Test("\r\n") || Test("\n\r"))
+		{
+			Next(2);
+			line += 1;
+		}
+		else if(IsNewLine(chunk[peekIndex]))
+		{
+			Next(1);
+			line += 1;
+		}
+		else if(IsWhileSpace(chunk[peekIndex]))
+		{
+			Next(1);
+		}
+		else
+		{
+			break;
+		}
+	}
 }
 
 bool Lexer::Test(const String& s)
@@ -86,13 +311,28 @@ bool Lexer::IsNewLine(Byte c)
 	return c == '\r' || c == '\n';
 }
 
-bool Lexer::IsCharacter(Byte c)
+bool Lexer::Peek(Byte c)
 {
 	if(!IsFinish())
 	{
 		return chunk[peekIndex] == c;
 	}
 	return false;
+}
+
+bool Lexer::IsDigit(Byte c)
+{
+	return c >= '0' && c <= '9';
+}
+
+bool Lexer::IsHex(Byte c)
+{
+	return (c >= '0' && c <= '9') ||  (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
+}
+
+bool Lexer::IsLetter(Byte c)
+{
+	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
 }
 
 bool Lexer::IsFinish()
@@ -103,7 +343,7 @@ bool Lexer::IsFinish()
 void Lexer::SkipComment()
 {
 	Next(2);
-	if(IsCharacter('['))
+	if(Peek('['))
 	{
 		size_t tempPeekIndex = peekIndex + 1;
 		while(tempPeekIndex < chunk.length() && chunk[tempPeekIndex] == '=')
@@ -124,36 +364,36 @@ String Lexer::ScanLongString()
 	size_t start = 0, end = 0;
 	String str;
 
-	if(!IsCharacter('['))
+	if(!Peek('['))
 		Error("invalid long string missing [");
 	Next(1);
 
-	while(IsCharacter('='))
+	while(Peek('='))
 	{
 		Next(1);
 		++leftEqualCount;
 	}
 
-	if(!IsCharacter('['))
+	if(!Peek('['))
 		Error("invalid long string missing [");
 	Next(1);
 
 	start = peekIndex;
-	while(!IsCharacter(']') && !IsFinish())
+	while(!Peek(']') && !IsFinish())
 		Next(1);
 
-	if(!IsCharacter(']'))
+	if(!Peek(']'))
 		Error("invalid long string missing ]");
 
 	end = peekIndex;
 
-	while(IsCharacter('='))
+	while(Peek('='))
 	{
 		Next(1);
 		++rightEqualCount;
 	}
 
-	if(!IsCharacter(']'))
+	if(!Peek(']'))
 		Error("invalid long string missing ]");
 	Next(1);
 
@@ -178,12 +418,12 @@ String Lexer::ScanShortString()
 	bool closed = false;
 	String str;
 
-	if(IsCharacter('\''))
+	if(Peek('\''))
 	{
 		brack = '\'';
 		Next(1);
 	}
-	else if(IsCharacter('\"'))
+	else if(Peek('\"'))
 	{
 		brack = '\"';
 		Next(1);
@@ -196,6 +436,7 @@ String Lexer::ScanShortString()
 	beg = peekIndex;
 	while(!IsFinish())
 	{
+		// Scan \' and \" first in case end by mistake.
 		if(Test("\\\""))
 		{
 			Next(2);
@@ -204,7 +445,7 @@ String Lexer::ScanShortString()
 		{
 			Next(2);
 		}
-		if(IsCharacter(brack))
+		if(Peek(brack))
 		{
 			Next(1);
 			closed = true;
@@ -226,6 +467,104 @@ String Lexer::ScanShortString()
 	str = Escape(str);
 
 	return str;
+}
+
+String Lexer::ScanNumber()
+{
+	if(!IsFinish())
+	{
+		size_t beg = 0, end = 0;
+		// 0[xX]
+		if(Test("0x") || Test("0X"))
+		{
+			Next(2);
+			beg = peekIndex;
+			// 0[xX][0-9a-fA-F]*
+			while (!IsFinish() && IsHex(chunk[peekIndex]))
+				Next(1);
+			// 0[xX][0-9a-fA-F]*(\.)?
+			if(Peek('.'))
+			{
+				Next(1);
+				// 0[xX][0-9a-fA-F]*(\.[0-9a-fA-F]*)?
+				while (!IsFinish() && IsHex(chunk[peekIndex]))
+					Next(1);
+			}
+			// 0[xX][0-9a-fA-F]*(\.[0-9a-fA-F]*)?([pP])?
+			if(Peek('p') || Peek('P'))
+			{
+				Next(1);
+				// 0[xX][0-9a-fA-F]*(\.[0-9a-fA-F]*)?([pP][+\-]?)?
+				if(Peek('+') || Peek('-'))
+					Next(1);
+				// 0[xX][0-9a-fA-F]*(\.[0-9a-fA-F]*)?([pP][+\-]?[0-9]+)?
+				if(!IsFinish() && IsDigit(chunk[peekIndex]))
+					Next(1);
+				else
+					Error("float hex number has no digit after p or P");
+				while(!IsFinish() && IsDigit(chunk[peekIndex]))
+					Next(1);
+			}
+			end = peekIndex;
+			return chunk.substr(beg, end - beg);
+		}
+		else if(IsDigit(chunk[peekIndex]))
+		{
+			beg = peekIndex;
+			// [0-9]*
+			while(!IsFinish() && IsDigit(chunk[peekIndex]))
+				Next(1);
+			// [0-9]*(\.)?
+			if(Peek('.'))
+			{
+				Next(1);
+				// [0-9]*(\.[0-9]*)?
+				while(!IsFinish() && IsDigit(chunk[peekIndex]))
+					Next(1);
+			}
+			// [0-9]*(\.[0-9]*)?([eE])?
+			if(Peek('e') || Peek('E'))
+			{
+				Next(1);
+				// [0-9]*(\.[0-9]*)?([eE][+\-]?)?
+				if(Peek('+') || Peek('-'))
+					Next(1);
+				// [0-9]*(\.[0-9]*)?([eE][+\-]?[0-9]+)?
+				if(!IsFinish() && IsDigit(chunk[peekIndex]))
+					Next(1);
+				else
+					Error("float number has no digit after e or E");
+				while(!IsFinish() && IsDigit(chunk[peekIndex]))
+					Next(1);
+			}
+			end = peekIndex;
+			return chunk.substr(beg, end - beg);
+		}
+	}
+	Error("unreachable!");
+	return "0";
+}
+
+String Lexer::ScanIdentifier()
+{
+	if(!IsFinish())
+	{
+		if(Peek('_') || IsLetter(chunk[peekIndex]))
+		{
+			size_t beg = peekIndex, end = peekIndex;
+			while(Peek('_'))
+				Next(1);
+			while(!IsFinish() &&
+					(IsLetter(chunk[peekIndex]) ||
+					IsDigit(chunk[peekIndex]) ||
+					Peek('_')))
+				Next(1);
+			end = peekIndex;
+			return chunk.substr(beg, end - beg);
+		}
+	}
+	Error("unreachable!");
+	return "";
 }
 
 String Lexer::Escape(const String& str)
@@ -267,7 +606,7 @@ String Lexer::Escape(const String& str)
 				{
 					size_t temp = pos + 1;
 					size_t decCount = 0;
-					for(char c = str[temp]; c >= '0' && c <= '9';)
+					for(Byte c = str[temp]; c >= '0' && c <= '9';)
 					{
 						++decCount;
 						++temp;
@@ -284,7 +623,7 @@ String Lexer::Escape(const String& str)
 
 					if(temp <= 0xFF)
 					{
-						res += (unsigned char)dec;
+						res += (Byte)dec;
 						pos += decCount + 1;
 						continue;
 					}
@@ -303,7 +642,7 @@ String Lexer::Escape(const String& str)
 				{
 					size_t temp = pos + 2;
 					size_t hexCount = 0;
-					for(char c = str[temp]; (c >= '0' && c <= '9') ||
+					for(Byte c = str[temp]; (c >= '0' && c <= '9') ||
 						(c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');)
 					{
 						++hexCount;
@@ -315,7 +654,7 @@ String Lexer::Escape(const String& str)
 					int hex = 0;
 					while(temp >= pos + 2)
 					{
-						char c = str[temp];
+						Byte c = str[temp];
 						if(c >= '0' && c <= '9')
 						{
 							hex = hex * 16 + c - '0';
@@ -333,7 +672,7 @@ String Lexer::Escape(const String& str)
 
 					if(hexCount >= 1)
 					{
-						res += (unsigned char)hex;
+						res += (Byte)hex;
 						pos += hexCount + 2;
 						continue;
 					}
@@ -363,7 +702,7 @@ String Lexer::Escape(const String& str)
 						--temp;
 						while(temp >= pos + 3)
 						{
-							char c = str[temp];
+							Byte c = str[temp];
 							if((c >= '0' && c <= '9') ||
 								(c >= 'a' && c <= 'f') ||
 								(c >= 'A' && c <= 'F'))
@@ -393,7 +732,7 @@ String Lexer::Escape(const String& str)
 							if(unicode <= 0x10FFFF)
 							{
 								// TODO
-								res += (unsigned char)unicode;
+								res += (Byte)unicode;
 								pos += unicodeCount + 4;
 								continue;
 							}

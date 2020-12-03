@@ -70,27 +70,56 @@ enum TokenKind
 	TOKEN_OP_BXOR     = TOKEN_OP_WAVE,
 };
 
+struct TokenResult
+{
+	int line;
+	int kind;
+	String token;
+};
+
+struct TokenKindResult
+{
+	int line;
+	String token;
+};
+
 struct Lexer
 {
+	// lexer data
 	String chunk;
 	String chunkName;
 	int line;
+	// cache data
+	String nextToken;
+	int nextTokenKind;
+	int nextTokenLine;
+	// constant data
 	std::unordered_map<String, int> keywords;
+	// peek index
 	size_t peekIndex;
 
 	Lexer(const String& _chunk, const String& _chunkName, int _line);
 
-	void NextToken(int& line, int& kind, String& token);
+	TokenResult NextToken();
+	TokenKindResult NextTokenKind(int kind);
+	TokenKindResult NextIdentifier();
+	int Line();
+	int LookAhead();
 	void SkipWhiteSpaces();
 	bool Test(const String& s);
 	void Next(int n);
+	bool Peek(Byte c);
 	bool IsWhileSpace(Byte c);
-	bool IsCharacter(Byte c);
+	bool IsDigit(Byte c);
+	bool IsHex(Byte c);
+	bool IsLetter(Byte c);
 	bool IsFinish();
 	bool IsNewLine(Byte c);
 	void SkipComment();
 	String ScanLongString();
 	String ScanShortString();
+	String ScanNumber();
+	String ScanIdentifier();
 	// Convert literally visible escape characters into truly invisible escape characters
 	String Escape(const String& str);
 	String ReplaceLine(const String& str);
