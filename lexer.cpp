@@ -337,7 +337,7 @@ bool Lexer::IsLetter(Byte c)
 
 bool Lexer::IsFinish()
 {
-	return peekIndex < chunk.length();
+	return peekIndex >= chunk.length();
 }
 
 void Lexer::SkipComment()
@@ -381,11 +381,11 @@ String Lexer::ScanLongString()
 	start = peekIndex;
 	while(!Peek(']') && !IsFinish())
 		Next(1);
+	end = peekIndex;
 
 	if(!Peek(']'))
 		Error("invalid long string missing ]");
-
-	end = peekIndex;
+	Next(1);
 
 	while(Peek('='))
 	{
@@ -456,7 +456,7 @@ String Lexer::ScanShortString()
 			Next(1);
 		}
 	}
-	end = peekIndex;
+	end = peekIndex - 1;
 
 	if(!closed)
 		Error("invalid short string not closed");
@@ -477,8 +477,8 @@ String Lexer::ScanNumber()
 		// 0[xX]
 		if(Test("0x") || Test("0X"))
 		{
-			Next(2);
 			beg = peekIndex;
+			Next(2);
 			// 0[xX][0-9a-fA-F]*
 			while (!IsFinish() && IsHex(chunk[peekIndex]))
 				Next(1);

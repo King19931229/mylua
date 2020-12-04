@@ -7,6 +7,7 @@
 #include "state/lua_state.h"
 #include "number/parser.h"
 #include "state/api_arith.h"
+#include "lexer/lexer.h"
 
 int print(LuaState* ls)
 {
@@ -109,34 +110,91 @@ int pcall(LuaState* ls)
 	return ls->GetTop();
 }
 
+String KindToCategory(int kind)
+{
+	if(kind < TOKEN_SEP_SEMI)
+		return "other";
+	if(kind <= TOKEN_SEP_RCURLY)
+		return "separator";
+	if(kind <= TOKEN_OP_NOT)
+		return "operator";
+	if(kind <= TOKEN_KW_WHILE)
+		return "keyword";
+	if(kind == TOKEN_IDENTIFIER)
+		return "identifier";
+	if(kind == TOKEN_NUMBER)
+		return "number";
+	if(kind == TOKEN_STRING)
+		return "string";
+	return "other";	
+}
+
+void testLexer(const String& chunk, const String& chunkName)
+{
+	LexerPtr lexer = NewLexer(chunk, chunkName);
+	while(true)
+	{
+		TokenResult res = lexer->NextToken();
+		String msg = Format::FormatString("[%2d] [%-10s] %s", res.line,
+			KindToCategory(res.kind).c_str(),
+			res.token.c_str());
+		printf("%s\n", msg.c_str());
+		if(res.kind == TOKEN_EOF)
+			break;
+	}
+}
+
 int main()
 {
-	FILE* f = fopen("C:/LearnCompiler/lua-5.3.6/src/hello.luac", "rb");
+	FILE* f = fopen("C:/LearnCompiler/lua-5.3.6/src/hello.lua", "rb");
 	if (f)
 	{
 		fseek(f, 0, SEEK_END);
 		long size = ftell(f);
 		fseek(f, 0, SEEK_SET);
 
-		std::vector<unsigned char> buffer;
-		buffer.resize(size + 1);
-		buffer[size] = 0;
+		std::vector<Byte> buffer;
+		buffer.resize(size);
 
 		fread(buffer.data(), 1, size, f);
 		fclose(f);
 		f = NULL;
 
-		LuaStatePtr state = NewLuaState();
-		state->Register("print", print);
-		state->Register("getmetatable", getMetatable);
-		state->Register("setmetatable", setMetatable);
-		state->Register("next", next);
-		state->Register("pairs", pairs);
-		state->Register("ipairs", ipairs);
-		state->Register("error", error);
-		state->Register("pcall", pcall);
-		state->Load(buffer, "chunk", "b");
-		state->Call(0, 0);
+		String chunk;
+		chunk.reserve(buffer.size());
+		for(const Byte& c : buffer)
+		{
+			chunk += c;
+		}
+
+		testLexer(chunk, "main");
 	}
+	// FILE* f = fopen("C:/LearnCompiler/lua-5.3.6/src/hello.luac", "rb");
+	// if (f)
+	// {
+	// 	fseek(f, 0, SEEK_END);
+	// 	long size = ftell(f);
+	// 	fseek(f, 0, SEEK_SET);
+
+	// 	std::vector<Byte> buffer;
+	// 	buffer.resize(size + 1);
+	// 	buffer[size] = 0;
+
+	// 	fread(buffer.data(), 1, size, f);
+	// 	fclose(f);
+	// 	f = NULL;
+
+	// 	LuaStatePtr state = NewLuaState();
+	// 	state->Register("print", print);
+	// 	state->Register("getmetatable", getMetatable);
+	// 	state->Register("setmetatable", setMetatable);
+	// 	state->Register("next", next);
+	// 	state->Register("pairs", pairs);
+	// 	state->Register("ipairs", ipairs);
+	// 	state->Register("error", error);
+	// 	state->Register("pcall", pcall);
+	// 	state->Load(buffer, "chunk", "b");
+	// 	state->Call(0, 0);
+	// }
 	system("pause");
 }

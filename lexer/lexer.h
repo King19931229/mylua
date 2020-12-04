@@ -130,5 +130,5 @@ using LexerPtr = std::shared_ptr<Lexer>;
 
 inline LexerPtr NewLexer(const String& chunk, const String& chunkName)
 {
-	return LexerPtr(new Lexer(chunk, chunkName, 0));
+	return LexerPtr(new Lexer(chunk, chunkName, 1));
 }
