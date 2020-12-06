@@ -81,14 +81,147 @@ StatPtr ParseRepeatStat(LexerPtr lexer)
 
 StatPtr ParseIfStat(LexerPtr lexer)
 {
-	// todo
-	return ParseEmptyStat(lexer);
+	ExpArray exps;
+	BlockArray blocks;
+
+	lexer->NextTokenKind(TOKEN_KW_IF);
+	exps.emplace_back(ParseExp(lexer));
+	blocks.emplace_back(ParseBlock(lexer));
+
+	while(lexer->LookAhead() == TOKEN_KW_ELSEIF)
+	{
+		lexer->NextToken();
+		exps.emplace_back(ParseExp(lexer));
+		lexer->NextTokenKind(TOKEN_KW_THEN);
+		blocks.emplace_back(ParseBlock(lexer));
+	}
+
+	if(lexer->LookAhead() == TOKEN_KW_ELSE)
+	{
+		lexer->NextToken();
+
+		ExpPtr _true = Exp::New<TrueExp>();
+		_true->Cast<TrueExp>()->Line = lexer->Line();
+
+		exps.emplace_back(_true);
+		blocks.emplace_back(ParseBlock(lexer));
+	}
+
+	lexer->NextTokenKind(TOKEN_KW_END);
+
+	StatPtr _if = Stat::New<IfStat>();
+	_if->Cast<IfStat>()->Exps = std::move(exps);
+	_if->Cast<IfStat>()->Blocks = std::move(blocks);
+	return _if;
+}
+
+StatPtr _FinishForNumStat(LexerPtr lexer, int lineOfFor, const String& varName)
+{
+	lexer->NextTokenKind(TOKEN_OP_ASSIGN);
+	ExpPtr initExp = ParseExp(lexer);
+	lexer->NextTokenKind(TOKEN_SEP_COMMA);
+	ExpPtr limitExp = ParseExp(lexer);
+	
+	ExpPtr stepExp;
+	if(lexer->LookAhead() == TOKEN_SEP_COMMA)
+	{
+		lexer->NextToken();
+		stepExp = ParseExp(lexer);
+	}
+	else
+	{
+		stepExp = Exp::New<IntegerExp>();
+		stepExp->Cast<IntegerExp>()->Line = lexer->Line();
+		stepExp->Cast<IntegerExp>()->Val = 1;
+	}
+	
+	int lineOfDo = lexer->NextTokenKind(TOKEN_KW_DO).line;
+	BlockPtr block = ParseBlock(lexer);
+	lexer->NextTokenKind(TOKEN_KW_END);
+
+	StatPtr forNumStat = Stat::New<ForNumStat>();
+	forNumStat->Cast<ForNumStat>()->LineOfFor = lineOfFor;
+	forNumStat->Cast<ForNumStat>()->LineOfDo = lineOfDo;
+	forNumStat->Cast<ForNumStat>()->VarName = varName;
+	forNumStat->Cast<ForNumStat>()->InitExp = initExp;
+	forNumStat->Cast<ForNumStat>()->LimitExp = limitExp;
+	forNumStat->Cast<ForNumStat>()->StepExp = stepExp;
+	forNumStat->Cast<ForNumStat>()->Block = block;
+	return forNumStat;
+}
+
+StringArray _FinishNameList(LexerPtr lexer, const String& name0)
+{
+	StringArray names = {name0};
+	while(lexer->LookAhead() == TOKEN_SEP_COMMA)
+	{
+		lexer->NextToken();
+		names.emplace_back(lexer->NextIdentifier().token);
+	}
+	return names;
+}
+
+StatPtr _FinishForInStat(LexerPtr lexer, const String& name0)
+{
+	StringArray nameList = _FinishNameList(lexer, name0);
+	lexer->NextTokenKind(TOKEN_KW_IN);
+	ExpArray expList = ParseExpList(lexer);
+	int lineOfDo = lexer->NextTokenKind(TOKEN_KW_DO).line;
+	BlockPtr block = ParseBlock(lexer);
+	lexer->NextTokenKind(TOKEN_KW_END);
+
+	StatPtr forInStat = Stat::New<ForInStat>();
+	forInStat->Cast<ForInStat>()->LineOfDo = lineOfDo;
+	forInStat->Cast<ForInStat>()->NameList = std::move(nameList);
+	forInStat->Cast<ForInStat>()->ExpList = std::move(expList);
+	forInStat->Cast<ForInStat>()->Block = block;
+	return forInStat;
 }
 
 StatPtr ParseForStat(LexerPtr lexer)
 {
-	// todo
-	return ParseEmptyStat(lexer);
+	int lineOfFor = lexer->NextTokenKind(TOKEN_KW_FOR).line;
+	String name = lexer->NextIdentifier().token;
+	if(lexer->LookAhead() == TOKEN_OP_ASSIGN)
+	{
+		return _FinishForNumStat(lexer, lineOfFor, name);
+	}
+	else
+	{
+		return _FinishForInStat(lexer, name);
+	}
+}
+
+StatPtr _FinishLocalFuncDefStat(LexerPtr lexer)
+{
+	lexer->NextTokenKind(TOKEN_KW_FUNCTION);
+	String name = lexer->NextIdentifier().token;
+	// function body
+	ExpPtr fdExp;// todo = ParseFuncDefExp(lexer);
+
+	StatPtr funcDef = Stat::New<LocalFuncDefStat>();
+	funcDef->Cast<LocalFuncDefStat>()->Name = name;
+	funcDef->Cast<LocalFuncDefStat>()->Exp = fdExp;
+	return funcDef;
+}
+
+StatPtr _FinishLocalVarDeclStat(LexerPtr lexer)
+{
+	String name0 = lexer->NextIdentifier().token;
+	StringArray nameList = _FinishNameList(lexer, name0);
+	ExpArray expList;
+	if(lexer->LookAhead() == TOKEN_OP_ASSIGN)
+	{
+		lexer->NextToken();
+		expList = ParseExpList(lexer);
+	}
+	int lastLine = lexer->Line();
+
+	StatPtr varDecl = Stat::New<LocalVarDeclList>();
+	varDecl->Cast<LocalVarDeclList>()->Line = lastLine;
+	varDecl->Cast<LocalVarDeclList>()->NameList = std::move(nameList);
+	varDecl->Cast<LocalVarDeclList>()->ExpList = std::move(expList);
+	return varDecl;
 }
 
 StatPtr ParseFuncDefStat(LexerPtr lexer)
@@ -99,8 +232,15 @@ StatPtr ParseFuncDefStat(LexerPtr lexer)
 
 StatPtr ParseLocalAassignOrFuncDefStat(LexerPtr lexer)
 {
-	// todo
-	return ParseEmptyStat(lexer);
+	lexer->NextTokenKind(TOKEN_KW_LOCAL);
+	if(lexer->LookAhead() == TOKEN_KW_FUNCTION)
+	{
+		return _FinishLocalFuncDefStat(lexer);
+	}
+	else
+	{
+		return _FinishLocalVarDeclStat(lexer);
+	}
 }
 
 StatPtr ParseAssignOrFuncCallStat(LexerPtr lexer)
