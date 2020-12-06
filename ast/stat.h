@@ -1,5 +1,5 @@
 #pragma once
-#include "struct.h"
+#include "ast_struct.h"
 
 // ;
 struct EmptyStat : public Stat
@@ -19,7 +19,7 @@ struct LabelStat : public Stat
 };
 
 // goto Name
-struct LabelStat : public Stat
+struct GotoStat : public Stat
 {
 	String Name;
 };
@@ -52,8 +52,8 @@ struct RepeatStat : public Stat
 // -> 2.if exp then block {elseif exp then block} end
 struct IfStat : public Stat
 {
-	std::vector<ExpPtr> Exps;
-	std::vector<BlockPtr> Blocks;
+	ExpArray Exps;
+	BlockArray Blocks;
 };
 
 // for Name = exp , exp [, exp] do block end
@@ -72,8 +72,8 @@ struct ForNumStat : public Stat
 struct ForInStat : public Stat
 {
 	int LineOfDo;
-	std::vector<String> NameList;
-	std::vector<ExpPtr> ExpList;
+	StringArray NameList;
+	ExpArray ExpList;
 	BlockPtr Block;
 };
 
@@ -81,16 +81,16 @@ struct ForInStat : public Stat
 struct LocalVarDeclList : public Stat
 {
 	int Line;
-	std::vector<String> NameList;
-	std::vector<ExpPtr> ExpList;
+	StringArray NameList;
+	ExpArray ExpList;
 };
 
 // varlist = explist
 struct AssignStat : public Stat
 {
 	int Line;
-	std::vector<String> VarList;
-	std::vector<ExpPtr> ExpList;
+	StringArray VarList;
+	ExpArray ExpList;
 };
 
 // -> 0.local function f (params) body end

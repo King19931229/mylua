@@ -1,5 +1,5 @@
 #pragma once
-#include "struct.h"
+#include "ast_struct.h"
 
 struct NilExp : public Exp
 {

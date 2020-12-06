@@ -83,8 +83,9 @@ struct TokenKindResult
 	String token;
 };
 
-struct Lexer
+class Lexer
 {
+protected:
 	// lexer data
 	String chunk;
 	String chunkName;
@@ -97,12 +98,13 @@ struct Lexer
 	std::unordered_map<String, int> keywords;
 	// peek index
 	size_t peekIndex;
-
+public:
 	Lexer(const String& _chunk, const String& _chunkName, int _line);
 
 	TokenResult NextToken();
 	TokenKindResult NextTokenKind(int kind);
 	TokenKindResult NextIdentifier();
+	// The line number of the *previous* token
 	int Line();
 	int LookAhead();
 	void SkipWhiteSpaces();

@@ -15,6 +15,7 @@ static_assert(sizeof(Int64) == 8, "size check");
 using Float64 = double;
 using String = std::string;
 using ByteArray = std::vector<Byte>;
+using StringArray = std::vector<String>;
 
 struct LuaTable;
 using LuaTablePtr = std::shared_ptr<LuaTable>;
@@ -38,6 +39,21 @@ struct UpValue;
 using UpValuePtr = std::shared_ptr<UpValue>;
 
 using LuaVM = LuaState;
+
+struct RTTI
+{
+	virtual ~RTTI() {}
+	template<typename T>
+	bool IsA()
+	{
+		return dynamic_cast<T*>(this) != nullptr;
+	}
+	template<typename T>
+	T* Cast()
+	{
+		return dynamic_cast<T*>(this);
+	}
+};
 
 inline void panic(const char* message)
 {
