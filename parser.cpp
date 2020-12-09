@@ -339,9 +339,303 @@ BlockPtr ParseBlock(LexerPtr lexer)
 }
 
 // exps
+ExpPtr ParseNumberExp(LexerPtr lexer)
+{
+	return Exp::New<NilExp>();
+}
+
+ExpPtr ParseTableConstructorExp(LexerPtr lexer)
+{
+	return Exp::New<NilExp>();
+}
+
+ExpPtr ParseFuncDefExp(LexerPtr lexer)
+{
+	return Exp::New<NilExp>();
+}
+
+ExpPtr ParsePrefixExp(LexerPtr lexer)
+{
+	return Exp::New<NilExp>();
+}
+
+ExpPtr ParseExp0(LexerPtr lexer)
+{
+	ExpPtr exp;
+	switch (lexer->LookAhead())
+	{
+		case TOKEN_VARARG:
+		{
+			TokenResult res = lexer->NextToken();
+			exp = Exp::New<VarargExp>();
+			exp->Cast<VarargExp>()->Line = res.line;
+			break;
+		}
+		case TOKEN_KW_NIL:
+		{
+			TokenResult res = lexer->NextToken();
+			exp = Exp::New<NilExp>();
+			exp->Cast<NilExp>()->Line = res.line;
+			break;
+		}
+		case TOKEN_KW_TRUE:
+		{
+			TokenResult res = lexer->NextToken();
+			exp = Exp::New<TrueExp>();
+			exp->Cast<TrueExp>()->Line = res.line;
+			break;
+		}
+		case TOKEN_KW_FALSE:
+		{
+			TokenResult res = lexer->NextToken();
+			exp = Exp::New<FalseExp>();
+			exp->Cast<FalseExp>()->Line = res.line;
+			break;
+		}
+		case TOKEN_STRING:
+		{
+			TokenResult res = lexer->NextToken();
+			exp = Exp::New<StringExp>();
+			exp->Cast<StringExp>()->Line = res.line;
+			exp->Cast<StringExp>()->Val = res.token;
+			break;
+		}
+		case TOKEN_NUMBER:
+		{
+			exp = ParseNumberExp(lexer);
+			break;
+		}
+		case TOKEN_SEP_LCURLY:
+		{
+			exp = ParseTableConstructorExp(lexer);
+			break;
+		}
+		case TOKEN_KW_FUNCTION:
+		{
+			exp = ParseFuncDefExp(lexer);
+			break;
+		}
+		default:
+		{
+			exp = ParsePrefixExp(lexer);
+			break;
+		}
+	}
+	return exp;
+}
+
+ExpPtr ParseExp1(LexerPtr lexer)
+{
+	ExpPtr exp = ParseExp0(lexer);
+	while(lexer->LookAhead() == TOKEN_OP_POW)
+	{
+		TokenResult res = lexer->NextToken();
+		ExpPtr newExp = Exp::New<BinopExp>();
+		newExp->Cast<BinopExp>()->Line = res.line;
+		newExp->Cast<BinopExp>()->Op = res.kind;
+		newExp->Cast<BinopExp>()->Exp1 = exp;
+		newExp->Cast<BinopExp>()->Exp2 = ParseExp0(lexer);
+		exp = newExp;
+	}
+	return exp;
+}
+
+ExpPtr ParseExp2(LexerPtr lexer)
+{
+	ExpPtr exp;
+	switch (lexer->LookAhead())
+	{
+		case TOKEN_OP_UNM:
+		case TOKEN_OP_BNOT:
+		case TOKEN_OP_LEN:
+		case TOKEN_OP_NOT:
+		{
+			TokenResult res = lexer->NextToken();
+			exp = Exp::New<UnopExp>();
+			exp->Cast<UnopExp>()->Line = res.line;
+			exp->Cast<UnopExp>()->Op = res.kind;
+			exp->Cast<UnopExp>()->Exp = ParseExp1(lexer);
+			break;
+		}
+		default:
+		{
+			exp = ParseExp1(lexer);
+			break;
+		}
+	}
+	return exp;
+}
+
+ExpPtr ParseExp3(LexerPtr lexer)
+{
+	ExpPtr exp = ParseExp2(lexer);
+	while(lexer->LookAhead() == TOKEN_OP_MUL || lexer->LookAhead() == TOKEN_OP_DIV ||
+		lexer->LookAhead() == TOKEN_OP_IDIV || lexer->LookAhead() == TOKEN_OP_MOD)
+	{
+		TokenResult res = lexer->NextToken();
+		ExpPtr newExp = Exp::New<BinopExp>();
+		newExp->Cast<BinopExp>()->Line = res.line;
+		newExp->Cast<BinopExp>()->Op = res.kind;
+		newExp->Cast<BinopExp>()->Exp1 = exp;
+		newExp->Cast<BinopExp>()->Exp2 = ParseExp2(lexer);
+		exp = newExp;
+	}
+	return exp;
+}
+
+ExpPtr ParseExp4(LexerPtr lexer)
+{
+	ExpPtr exp = ParseExp3(lexer);
+	while(lexer->LookAhead() == TOKEN_OP_ADD || lexer->LookAhead() == TOKEN_OP_SUB)
+	{
+		TokenResult res = lexer->NextToken();
+		ExpPtr newExp = Exp::New<BinopExp>();
+		newExp->Cast<BinopExp>()->Line = res.line;
+		newExp->Cast<BinopExp>()->Op = res.kind;
+		newExp->Cast<BinopExp>()->Exp1 = exp;
+		newExp->Cast<BinopExp>()->Exp2 = ParseExp3(lexer);
+		exp = newExp;
+	}
+	return exp;
+}
+
+ExpPtr ParseExp5(LexerPtr lexer)
+{
+	ExpPtr exp = ParseExp4(lexer);
+	if(lexer->LookAhead() != TOKEN_OP_CONCAT)
+	{
+		return exp;
+	}
+	ExpArray exps = {exp};
+	int line = 0;
+	while(lexer->LookAhead() == TOKEN_OP_CONCAT)
+	{
+		line = lexer->NextToken().line;
+		exps.emplace_back(ParseExp4(lexer));
+	}
+	exp = Exp::New<ConcatExp>();
+	exp->Cast<ConcatExp>()->Line = line;
+	exp->Cast<ConcatExp>()->Exps = std::move(exps);
+	return exp;
+}
+
+ExpPtr ParseExp6(LexerPtr lexer)
+{
+	ExpPtr exp = ParseExp5(lexer);
+	while(lexer->LookAhead() == TOKEN_OP_SHL || lexer->LookAhead() == TOKEN_OP_SHR)
+	{
+		TokenResult res = lexer->NextToken();
+		ExpPtr newExp = Exp::New<BinopExp>();
+		newExp->Cast<BinopExp>()->Line = res.line;
+		newExp->Cast<BinopExp>()->Op = res.kind;
+		newExp->Cast<BinopExp>()->Exp1 = exp;
+		newExp->Cast<BinopExp>()->Exp2 = ParseExp5(lexer);
+		exp = newExp;
+	}
+	return exp;
+}
+
+ExpPtr ParseExp7(LexerPtr lexer)
+{
+	ExpPtr exp = ParseExp6(lexer);
+	while(lexer->LookAhead() == TOKEN_OP_BAND)
+	{
+		TokenResult res = lexer->NextToken();
+		ExpPtr newExp = Exp::New<BinopExp>();
+		newExp->Cast<BinopExp>()->Line = res.line;
+		newExp->Cast<BinopExp>()->Op = res.kind;
+		newExp->Cast<BinopExp>()->Exp1 = exp;
+		newExp->Cast<BinopExp>()->Exp2 = ParseExp6(lexer);
+		exp = newExp;
+	}
+	return exp;
+}
+
+ExpPtr ParseExp8(LexerPtr lexer)
+{
+	ExpPtr exp = ParseExp7(lexer);
+	while(lexer->LookAhead() == TOKEN_OP_BXOR)
+	{
+		TokenResult res = lexer->NextToken();
+		ExpPtr newExp = Exp::New<BinopExp>();
+		newExp->Cast<BinopExp>()->Line = res.line;
+		newExp->Cast<BinopExp>()->Op = res.kind;
+		newExp->Cast<BinopExp>()->Exp1 = exp;
+		newExp->Cast<BinopExp>()->Exp2 = ParseExp7(lexer);
+		exp = newExp;
+	}
+	return exp;
+}
+
+ExpPtr ParseExp9(LexerPtr lexer)
+{
+	ExpPtr exp = ParseExp8(lexer);
+	while(lexer->LookAhead() == TOKEN_OP_BOR)
+	{
+		TokenResult res = lexer->NextToken();
+		ExpPtr newExp = Exp::New<BinopExp>();
+		newExp->Cast<BinopExp>()->Line = res.line;
+		newExp->Cast<BinopExp>()->Op = res.kind;
+		newExp->Cast<BinopExp>()->Exp1 = exp;
+		newExp->Cast<BinopExp>()->Exp2 = ParseExp8(lexer);
+		exp = newExp;
+	}
+	return exp;
+}
+
+ExpPtr ParseExp10(LexerPtr lexer)
+{
+	ExpPtr exp = ParseExp9(lexer);
+	while(lexer->LookAhead() == TOKEN_OP_LE || lexer->LookAhead() == TOKEN_OP_GE ||
+		lexer->LookAhead() == TOKEN_OP_LT || lexer->LookAhead() == TOKEN_OP_GT ||
+		lexer->LookAhead() == TOKEN_OP_NE || lexer->LookAhead() == TOKEN_OP_EQ)
+	{
+		TokenResult res = lexer->NextToken();
+		ExpPtr newExp = Exp::New<BinopExp>();
+		newExp->Cast<BinopExp>()->Line = res.line;
+		newExp->Cast<BinopExp>()->Op = res.kind;
+		newExp->Cast<BinopExp>()->Exp1 = exp;
+		newExp->Cast<BinopExp>()->Exp2 = ParseExp9(lexer);
+		exp = newExp;
+	}
+	return exp;
+}
+
+ExpPtr ParseExp11(LexerPtr lexer)
+{
+	ExpPtr exp = ParseExp10(lexer);
+	while(lexer->LookAhead() == TOKEN_OP_AND)
+	{
+		TokenResult res = lexer->NextToken();
+		ExpPtr newExp = Exp::New<BinopExp>();
+		newExp->Cast<BinopExp>()->Line = res.line;
+		newExp->Cast<BinopExp>()->Op = res.kind;
+		newExp->Cast<BinopExp>()->Exp1 = exp;
+		newExp->Cast<BinopExp>()->Exp2 = ParseExp10(lexer);
+		exp = newExp;
+	}
+	return exp;
+}
+
+ExpPtr ParseExp12(LexerPtr lexer)
+{
+	ExpPtr exp = ParseExp11(lexer);
+	while(lexer->LookAhead() == TOKEN_OP_OR)
+	{
+		TokenResult res = lexer->NextToken();
+		ExpPtr newExp = Exp::New<BinopExp>();
+		newExp->Cast<BinopExp>()->Line = res.line;
+		newExp->Cast<BinopExp>()->Op = res.kind;
+		newExp->Cast<BinopExp>()->Exp1 = exp;
+		newExp->Cast<BinopExp>()->Exp2 = ParseExp11(lexer);
+		exp = newExp;
+	}
+	return exp;
+}
+
 ExpPtr ParseExp(LexerPtr lexer)
 {
-	return Exp::New<TrueExp>();
+	return ParseExp12(lexer);
 }
 
 ExpArray ParseExpList(LexerPtr lexer)
