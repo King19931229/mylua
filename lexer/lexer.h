@@ -8,7 +8,7 @@ enum TokenKind
 	TOKEN_EOF = 0,                      // end-of-file
 	TOKEN_VARARG,                       // ...
 	TOKEN_SEP_SEMI,                     // ;
-	TOKEN_SEP_COMMA ,                   // ,
+	TOKEN_SEP_COMMA,                    // ,
 	TOKEN_SEP_DOT,                      // .
 	TOKEN_SEP_COLON,                    // :
 	TOKEN_SEP_LABEL,                    // ::
@@ -98,15 +98,7 @@ protected:
 	std::unordered_map<String, int> keywords;
 	// peek index
 	size_t peekIndex;
-public:
-	Lexer(const String& _chunk, const String& _chunkName, int _line);
 
-	TokenResult NextToken();
-	TokenKindResult NextTokenKind(int kind);
-	TokenKindResult NextIdentifier();
-	// The line number of the *previous* token
-	int Line();
-	int LookAhead();
 	void SkipWhiteSpaces();
 	bool Test(const String& s);
 	void Next(int n);
@@ -126,6 +118,15 @@ public:
 	String Escape(const String& str);
 	String ReplaceLine(const String& str);
 	size_t Count(const String& str, Byte c);
+public:
+	Lexer(const String& _chunk, const String& _chunkName, int _line);
+
+	TokenResult NextToken();
+	TokenKindResult NextTokenKind(int kind);
+	TokenKindResult NextIdentifier();
+	// The line number of the *previous* token
+	int Line();
+	int LookAhead();
 };
 
 using LexerPtr = std::shared_ptr<Lexer>;

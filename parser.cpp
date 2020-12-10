@@ -1,6 +1,13 @@
 #include "parser/parser_block.h"
 #include "parser/parser_exp.h"
 #include "ast/stat.h"
+#include "number/parser.h"
+
+#define Error(...)\
+{\
+	String msg = Format::FormatString(__VA_ARGS__);\
+	panic(msg.c_str());\
+}
 
 // stats
 
@@ -340,18 +347,177 @@ BlockPtr ParseBlock(LexerPtr lexer)
 
 // exps
 ExpPtr ParseNumberExp(LexerPtr lexer)
+{	
+	TokenResult res = lexer->NextToken();
+
+	auto intPair = ParseInteger(res.token);
+	if(std::get<1>(intPair))
+	{
+		ExpPtr exp;
+		exp = Exp::New<IntegerExp>();
+		exp->Cast<IntegerExp>()->Line = res.line;
+		exp->Cast<IntegerExp>()->Val = std::get<0>(intPair);
+		return exp;
+	}
+
+	auto floatPair = ParseFloat(res.token);
+	if(std::get<1>(floatPair))
+	{
+		ExpPtr exp;
+		exp = Exp::New<FloatExp>();
+		exp->Cast<FloatExp>()->Line = res.line;
+		exp->Cast<FloatExp>()->Val = std::get<0>(floatPair);
+		return exp;
+	}
+
+	Error("not a number: %s", res.token.c_str());
+	return nullptr;
+}
+
+std::pair<ExpPtr, ExpPtr> _ParseField(LexerPtr lexer)
 {
-	return Exp::New<NilExp>();
+	if(lexer->LookAhead() == TOKEN_SEP_LBRACK)
+	{
+		lexer->NextToken();
+		ExpPtr k = ParseExp(lexer);
+		lexer->NextTokenKind(TOKEN_SEP_RBRACK);
+		lexer->NextTokenKind(TOKEN_OP_ASSIGN);
+		ExpPtr v = ParseExp(lexer);
+		return std::make_pair(k, v);
+	}
+
+	ExpPtr exp = ParseExp(lexer);
+	if(exp->IsA<NameExp>())
+	{
+		NameExp* nameExp = exp->Cast<NameExp>();
+		if(lexer->LookAhead() == TOKEN_OP_ASSIGN)
+		{
+			lexer->NextToken();
+			ExpPtr k = Exp::New<StringExp>();
+			k->Cast<StringExp>()->Line = nameExp->Line;
+			k->Cast<StringExp>()->Val = nameExp->Name;
+			ExpPtr v = ParseExp(lexer);
+			return std::make_pair(k, v);
+		}
+	}
+
+	// When the field is not a key = val, then the field is val only.
+	// Which means it is an array element.
+	return std::make_pair(nullptr, exp);
+}
+
+bool _IsFieldSep(int tokenKind)
+{
+	return tokenKind == TOKEN_SEP_COMMA || tokenKind == TOKEN_SEP_SEMI;
+}
+
+std::pair<ExpArray, ExpArray> _ParseFieldList(LexerPtr lexer)
+{
+	ExpArray ks, vs;
+	if(lexer->LookAhead() != TOKEN_SEP_RCURLY)
+	{
+		auto kvRes = _ParseField(lexer);
+		ExpPtr k = std::get<0>(kvRes);
+		ExpPtr v = std::get<1>(kvRes);
+
+		ks.emplace_back(k);
+		vs.emplace_back(v);
+
+		while(_IsFieldSep(lexer->LookAhead()))
+		{
+			lexer->NextToken();
+			if(lexer->LookAhead() != TOKEN_SEP_RCURLY)
+			{
+				kvRes = _ParseField(lexer);
+				k = std::get<0>(kvRes);
+				v = std::get<1>(kvRes);
+				ks.emplace_back(k);
+				vs.emplace_back(v);
+			}
+			// The field list ends right now.
+			else
+			{
+				break;
+			}
+		}
+	}
+
+	return std::make_pair(ks, vs);
 }
 
 ExpPtr ParseTableConstructorExp(LexerPtr lexer)
 {
-	return Exp::New<NilExp>();
+	int line = lexer->Line();
+	lexer->NextTokenKind(TOKEN_SEP_LCURLY);
+	auto fieldListRes = _ParseFieldList(lexer);
+	ExpArray keyExps = std::move(std::get<0>(fieldListRes));
+	ExpArray valExps = std::move(std::get<1>(fieldListRes));
+	lexer->NextTokenKind(TOKEN_SEP_RCURLY);
+	int lastLine = lexer->Line();
+
+	ExpPtr exp = Exp::New<TableConstructorExp>();
+	exp->Cast<TableConstructorExp>()->Line = line;
+	exp->Cast<TableConstructorExp>()->LastLine = lastLine;
+	exp->Cast<TableConstructorExp>()->KeyExps = std::move(keyExps);
+	exp->Cast<TableConstructorExp>()->ValExps = std::move(valExps);
+	return exp;
+}
+
+std::tuple<StringArray, bool> _ParseParList(LexerPtr lexer)
+{
+	switch (lexer->LookAhead())
+	{
+		case TOKEN_SEP_RPAREN:
+			return std::make_tuple(StringArray(), false);
+		case TOKEN_VARARG:
+			lexer->NextToken();
+			return std::make_tuple(StringArray(), true);
+		default:
+			break;
+	}
+
+	StringArray names;
+	bool isVararg = false;
+	names.emplace_back(lexer->NextToken().token);
+	while(lexer->LookAhead() == TOKEN_SEP_COMMA)
+	{
+		lexer->NextToken();
+		if(lexer->LookAhead() == TOKEN_IDENTIFIER)
+		{
+			names.emplace_back(lexer->NextToken().token);
+		}
+		else
+		{
+			lexer->NextTokenKind(TOKEN_VARARG);
+			isVararg = true;
+			break;
+		}
+	}
+
+	return std::make_tuple(names, isVararg);
 }
 
 ExpPtr ParseFuncDefExp(LexerPtr lexer)
 {
-	return Exp::New<NilExp>();
+	int line = lexer->Line();
+
+	lexer->NextTokenKind(TOKEN_SEP_LPAREN);
+	auto parRes = _ParseParList(lexer);
+	StringArray parList = std::move(std::get<0>(parRes));
+	bool isVararg = std::get<1>(parRes);
+	lexer->NextTokenKind(TOKEN_SEP_RPAREN);
+
+	BlockPtr block = ParseBlock(lexer);
+
+	int lastLine = lexer->NextTokenKind(TOKEN_KW_END).line;
+
+	ExpPtr exp = Exp::New<FuncDefExp>();
+	exp->Cast<FuncDefExp>()->Line = line;
+	exp->Cast<FuncDefExp>()->LastLine = lastLine;
+	exp->Cast<FuncDefExp>()->ParList = std::move(parList);
+	exp->Cast<FuncDefExp>()->IsVararg = isVararg;
+	exp->Cast<FuncDefExp>()->Block = block;
+	return exp;
 }
 
 ExpPtr ParsePrefixExp(LexerPtr lexer)
