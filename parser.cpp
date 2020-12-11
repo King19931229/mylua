@@ -237,7 +237,7 @@ StatPtr ParseFuncDefStat(LexerPtr lexer)
 	return ParseEmptyStat(lexer);
 }
 
-StatPtr ParseLocalAassignOrFuncDefStat(LexerPtr lexer)
+StatPtr ParseLocalAssignOrFuncDefStat(LexerPtr lexer)
 {
 	lexer->NextTokenKind(TOKEN_KW_LOCAL);
 	if(lexer->LookAhead() == TOKEN_KW_FUNCTION)
@@ -250,10 +250,30 @@ StatPtr ParseLocalAassignOrFuncDefStat(LexerPtr lexer)
 	}
 }
 
+StatPtr ParseAssignStat(LexerPtr lexer, ExpPtr var0)
+{
+	return nullptr;
+}
+
 StatPtr ParseAssignOrFuncCallStat(LexerPtr lexer)
 {
-	// todo
-	return ParseEmptyStat(lexer);
+	ExpPtr prefixExp = ParsePrefixExp(lexer);
+	if(prefixExp->IsA<FuncCallExp>())
+	{
+		StatPtr fc = Stat::New<FuncCallStat>();
+
+		fc->Cast<FuncCallStat>()->Line = prefixExp->Cast<FuncCallExp>()->Line;
+		fc->Cast<FuncCallStat>()->LastLine = prefixExp->Cast<FuncCallExp>()->LastLine;
+		fc->Cast<FuncCallStat>()->PrefixExp = prefixExp->Cast<FuncCallExp>()->PrefixExp;
+		fc->Cast<FuncCallStat>()->NameExp = prefixExp->Cast<FuncCallExp>()->NameExp;
+		fc->Cast<FuncCallStat>()->Args = std::move(prefixExp->Cast<FuncCallExp>()->Args);
+
+		return fc;
+	}
+	else
+	{
+		return ParseAssignStat(lexer, prefixExp);
+	}
 }
 
 StatPtr ParseStat(LexerPtr lexer)
@@ -270,7 +290,7 @@ StatPtr ParseStat(LexerPtr lexer)
 		case TOKEN_KW_IF: return ParseIfStat(lexer);
 		case TOKEN_KW_FOR: return ParseForStat(lexer);
 		case TOKEN_KW_FUNCTION: return ParseFuncDefStat(lexer);
-		case TOKEN_KW_LOCAL: return ParseLocalAassignOrFuncDefStat(lexer);
+		case TOKEN_KW_LOCAL: return ParseLocalAssignOrFuncDefStat(lexer);
 		default: return ParseAssignOrFuncCallStat(lexer);
 	}
 }
@@ -518,11 +538,6 @@ ExpPtr ParseFuncDefExp(LexerPtr lexer)
 	exp->Cast<FuncDefExp>()->IsVararg = isVararg;
 	exp->Cast<FuncDefExp>()->Block = block;
 	return exp;
-}
-
-ExpPtr ParsePrefixExp(LexerPtr lexer)
-{
-	return Exp::New<NilExp>();
 }
 
 ExpPtr ParseExp0(LexerPtr lexer)
@@ -814,4 +829,155 @@ ExpArray ParseExpList(LexerPtr lexer)
 		exps.push_back(ParseExp(lexer));
 	}
 	return exps;
+}
+
+ExpPtr ParseParensExp(LexerPtr lexer)
+{
+	lexer->NextTokenKind(TOKEN_SEP_LPAREN);
+	ExpPtr exp = ParseExp(lexer);
+	lexer->NextTokenKind(TOKEN_SEP_RPAREN);
+
+	// VarargExp and FuncCallExp need to reserve () to get the first argument.
+	if(exp->IsA<VarargExp>() || exp->IsA<FuncCallExp>() ||
+	// NameExp and TableAccessExp need to reserve () for syntax error
+	// if there is an assignment like a,(b),(c[10]) = 1,2,3
+	exp->IsA<NameExp>() || exp->IsA<TableAccessExp>())
+	{
+		ExpPtr newExp = Exp::New<ParensExp>();
+		newExp->Cast<ParensExp>()->Exp =exp;
+		exp = newExp;
+	}
+
+	return exp;
+}
+
+ExpPtr _ParseNameExp(LexerPtr lexer)
+{
+	if(lexer->LookAhead() == TOKEN_SEP_COLON)
+	{
+		lexer->NextToken();
+		TokenKindResult res = lexer->NextIdentifier();
+		ExpPtr exp = Exp::New<StringExp>();
+		exp->Cast<StringExp>()->Line = res.line;
+		exp->Cast<StringExp>()->Val = res.token;
+		return exp;
+	}
+	return nullptr;
+}
+
+ExpArray _ParseArgs(LexerPtr lexer)
+{
+	ExpArray args;
+	switch (lexer->LookAhead())
+	{
+		case TOKEN_SEP_LPAREN:
+		{
+			lexer->NextToken();
+			if(lexer->LookAhead() != TOKEN_SEP_RPAREN)
+			{
+				args = ParseExpList(lexer);
+			}
+			lexer->NextTokenKind(TOKEN_SEP_RPAREN);
+			break;
+		}
+		case TOKEN_SEP_LCURLY:
+		{
+			args.emplace_back(ParseTableConstructorExp(lexer));
+			break;
+		}
+		default:
+		{
+			TokenKindResult res = lexer->NextTokenKind(TOKEN_STRING);
+			ExpPtr exp = Exp::New<StringExp>();
+			exp->Cast<StringExp>()->Line = res.line;
+			exp->Cast<StringExp>()->Val = res.token;
+			args.emplace_back(exp);
+			break;
+		}
+	}
+	return args;
+}
+
+ExpPtr _FinishFuncCallExp(LexerPtr lexer, ExpPtr prefixExp)
+{
+	// optional, can be null.
+	ExpPtr nameExp = _ParseNameExp(lexer);
+	int line = lexer->Line();
+	ExpArray args = _ParseArgs(lexer);
+	int lastLine = lexer->Line();
+
+	ExpPtr exp = Exp::New<FuncCallExp>();
+	exp->Cast<FuncCallExp>()->Line = line;
+	exp->Cast<FuncCallExp>()->LastLine = lastLine;
+	exp->Cast<FuncCallExp>()->PrefixExp = prefixExp;
+	exp->Cast<FuncCallExp>()->NameExp = nameExp;
+	exp->Cast<FuncCallExp>()->Args = args;
+	return exp;
+}
+
+ExpPtr _FinishPrefixExp(LexerPtr lexer, ExpPtr exp)
+{
+	while(true)
+	{
+		switch (lexer->LookAhead())
+		{
+			case TOKEN_SEP_LBRACK:
+			{
+				lexer->NextToken();
+				ExpPtr keyExp = ParseExp(lexer);
+				lexer->NextTokenKind(TOKEN_SEP_RBRACK);
+				ExpPtr newExp = Exp::New<TableAccessExp>();
+				newExp->Cast<TableAccessExp>()->LastLine = lexer->Line();
+				newExp->Cast<TableAccessExp>()->PrefixExp = exp;
+				newExp->Cast<TableAccessExp>()->KeyExp = keyExp;
+				exp = newExp;
+				break;
+			}
+			case TOKEN_SEP_DOT:
+			{
+				lexer->NextToken();
+				TokenKindResult res = lexer->NextIdentifier();
+
+				ExpPtr keyExp = Exp::New<StringExp>();
+				keyExp->Cast<StringExp>()->Line = res.line;
+				keyExp->Cast<StringExp>()->Val = res.token;
+
+				ExpPtr newExp = Exp::New<TableAccessExp>();
+				newExp->Cast<TableAccessExp>()->LastLine = res.line;
+				newExp->Cast<TableAccessExp>()->PrefixExp = exp;
+				newExp->Cast<TableAccessExp>()->KeyExp = keyExp;
+				exp = newExp;
+				break;
+			}
+			case TOKEN_SEP_COLON: // prefixExp:name(args)
+			case TOKEN_SEP_LPAREN: // prefixExp(args)
+			case TOKEN_SEP_LCURLY: // prefixExp{arg}
+			case TOKEN_STRING: // prefix "arg"
+			{
+				exp = _FinishFuncCallExp(lexer, exp);
+				break;
+			}
+			default:
+			{
+				return exp;
+			}
+		}
+	}
+}
+
+ExpPtr ParsePrefixExp(LexerPtr lexer)
+{
+	ExpPtr exp;
+	if(lexer->LookAhead() == TOKEN_IDENTIFIER)
+	{
+		TokenKindResult res = lexer->NextIdentifier();
+		exp = Exp::New<NameExp>();
+		exp->Cast<NameExp>()->Line = res.line;
+		exp->Cast<NameExp>()->Name = res.token;
+	}
+	else
+	{
+		exp = ParseParensExp(lexer);
+	}
+	return exp;
 }

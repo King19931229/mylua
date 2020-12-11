@@ -30,9 +30,6 @@ struct DoStat : public Stat
 	BlockPtr Block;
 };
 
-// functioncall
-using FunctionCallStat = FunctionCallExp;
-
 // while exp do block end
 struct WhileStat : public Stat
 {
@@ -100,4 +97,14 @@ struct LocalFuncDefStat : public Stat
 	String Name;
 	// FuncDefExp
 	ExpPtr Exp;
+};
+
+struct FuncCallStat : public Stat
+{
+	int Line;
+	int LastLine;
+	ExpPtr PrefixExp;
+	// StringExp
+	ExpPtr NameExp;
+	std::vector<ExpPtr> Args;
 };

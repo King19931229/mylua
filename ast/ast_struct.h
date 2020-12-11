@@ -32,5 +32,3 @@ using ExpArray = std::vector<ExpPtr>;
 struct Block;
 using BlockPtr = std::shared_ptr<Block>;
 using BlockArray = std::vector<BlockPtr>;
-
-struct FunctionCallExp;
