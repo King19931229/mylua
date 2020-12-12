@@ -7,7 +7,7 @@
 #include "state/lua_state.h"
 #include "number/parser.h"
 #include "state/api_arith.h"
-#include "lexer/lexer.h"
+#include "compiler/lexer/lexer.h"
 
 int print(LuaState* ls)
 {

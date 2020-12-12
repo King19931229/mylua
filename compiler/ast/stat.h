@@ -86,7 +86,7 @@ struct LocalVarDeclList : public Stat
 struct AssignStat : public Stat
 {
 	int Line;
-	StringArray VarList;
+	ExpArray VarList;
 	ExpArray ExpList;
 };
 

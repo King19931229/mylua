@@ -1,6 +1,6 @@
 #pragma once
-#include "ast/block.h"
-#include "lexer/lexer.h"
+#include "compiler/ast/block.h"
+#include "compiler/lexer/lexer.h"
 
 // ';'
 StatPtr ParseEmptyStat(LexerPtr lexer);
@@ -25,7 +25,7 @@ StatPtr ParseForStat(LexerPtr lexer);
 StatPtr ParseFuncDefStat(LexerPtr lexer);
 // loval function Name funcbody
 // local namelist ['=' explist]
-StatPtr ParseLocalAassignOrFuncDefStat(LexerPtr lexer);
+StatPtr ParseLocalAssignOrFuncDefStat(LexerPtr lexer);
 // varlist '=' explist
 // functioncall
 StatPtr ParseAssignOrFuncCallStat(LexerPtr lexer);

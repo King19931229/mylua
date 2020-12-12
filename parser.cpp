@@ -1,7 +1,9 @@
-#include "parser/parser_block.h"
-#include "parser/parser_exp.h"
-#include "ast/stat.h"
+#include "compiler/parser/parser_block.h"
+#include "compiler/parser/parser_exp.h"
+#include "compiler/ast/stat.h"
+#include "compiler/parser/optimizer.h"
 #include "number/parser.h"
+#include "number/math.h"
 
 #define Error(...)\
 {\
@@ -250,9 +252,41 @@ StatPtr ParseLocalAssignOrFuncDefStat(LexerPtr lexer)
 	}
 }
 
+ExpPtr _CheckVar(LexerPtr lexer, ExpPtr exp)
+{
+	if(exp->IsA<NameExp>() || exp->IsA<TableAccessExp>())
+	{
+		return exp;
+	}
+	lexer->NextTokenKind(-1);
+	Error("unreachable!");
+	return nullptr;
+}
+
+ExpArray _FinishVarList(LexerPtr lexer, ExpPtr var0)
+{
+	ExpArray vars = {var0};
+	while(lexer->LookAhead() == TOKEN_SEP_COMMA)
+	{
+		lexer->NextToken();
+		ExpPtr exp = ParsePrefixExp(lexer);
+		vars.emplace_back(_CheckVar(lexer, exp));
+	}
+	return vars;
+}
+
 StatPtr ParseAssignStat(LexerPtr lexer, ExpPtr var0)
 {
-	return nullptr;
+	ExpArray vars = _FinishVarList(lexer, var0);
+	lexer->NextTokenKind(TOKEN_OP_ASSIGN);
+	ExpArray expList = ParseExpList(lexer);
+	int lastLine = lexer->Line();
+
+	StatPtr assign = Stat::New<AssignStat>();
+	assign->Cast<AssignStat>()->Line = lastLine;
+	assign->Cast<AssignStat>()->VarList = std::move(vars);
+	assign->Cast<AssignStat>()->ExpList = std::move(expList);
+	return assign;
 }
 
 StatPtr ParseAssignOrFuncCallStat(LexerPtr lexer)
@@ -618,6 +652,7 @@ ExpPtr ParseExp1(LexerPtr lexer)
 		newExp->Cast<BinopExp>()->Exp2 = ParseExp0(lexer);
 		exp = newExp;
 	}
+	exp = OptimizePow(exp);
 	return exp;
 }
 
@@ -636,6 +671,7 @@ ExpPtr ParseExp2(LexerPtr lexer)
 			exp->Cast<UnopExp>()->Line = res.line;
 			exp->Cast<UnopExp>()->Op = res.kind;
 			exp->Cast<UnopExp>()->Exp = ParseExp1(lexer);
+			exp = OptimizeUnaryOp(exp);
 			break;
 		}
 		default:
@@ -659,6 +695,7 @@ ExpPtr ParseExp3(LexerPtr lexer)
 		newExp->Cast<BinopExp>()->Op = res.kind;
 		newExp->Cast<BinopExp>()->Exp1 = exp;
 		newExp->Cast<BinopExp>()->Exp2 = ParseExp2(lexer);
+		newExp = OptimizeArithBinaryOp(newExp);
 		exp = newExp;
 	}
 	return exp;
@@ -675,6 +712,7 @@ ExpPtr ParseExp4(LexerPtr lexer)
 		newExp->Cast<BinopExp>()->Op = res.kind;
 		newExp->Cast<BinopExp>()->Exp1 = exp;
 		newExp->Cast<BinopExp>()->Exp2 = ParseExp3(lexer);
+		newExp = OptimizeArithBinaryOp(newExp);
 		exp = newExp;
 	}
 	return exp;
@@ -711,6 +749,7 @@ ExpPtr ParseExp6(LexerPtr lexer)
 		newExp->Cast<BinopExp>()->Op = res.kind;
 		newExp->Cast<BinopExp>()->Exp1 = exp;
 		newExp->Cast<BinopExp>()->Exp2 = ParseExp5(lexer);
+		newExp = OptimizeBitwiseBinaryOp(newExp);
 		exp = newExp;
 	}
 	return exp;
@@ -727,6 +766,7 @@ ExpPtr ParseExp7(LexerPtr lexer)
 		newExp->Cast<BinopExp>()->Op = res.kind;
 		newExp->Cast<BinopExp>()->Exp1 = exp;
 		newExp->Cast<BinopExp>()->Exp2 = ParseExp6(lexer);
+		newExp = OptimizeBitwiseBinaryOp(newExp);
 		exp = newExp;
 	}
 	return exp;
@@ -743,6 +783,7 @@ ExpPtr ParseExp8(LexerPtr lexer)
 		newExp->Cast<BinopExp>()->Op = res.kind;
 		newExp->Cast<BinopExp>()->Exp1 = exp;
 		newExp->Cast<BinopExp>()->Exp2 = ParseExp7(lexer);
+		newExp = OptimizeBitwiseBinaryOp(newExp);
 		exp = newExp;
 	}
 	return exp;
@@ -759,6 +800,7 @@ ExpPtr ParseExp9(LexerPtr lexer)
 		newExp->Cast<BinopExp>()->Op = res.kind;
 		newExp->Cast<BinopExp>()->Exp1 = exp;
 		newExp->Cast<BinopExp>()->Exp2 = ParseExp8(lexer);
+		newExp = OptimizeBitwiseBinaryOp(newExp);
 		exp = newExp;
 	}
 	return exp;
@@ -793,6 +835,7 @@ ExpPtr ParseExp11(LexerPtr lexer)
 		newExp->Cast<BinopExp>()->Op = res.kind;
 		newExp->Cast<BinopExp>()->Exp1 = exp;
 		newExp->Cast<BinopExp>()->Exp2 = ParseExp10(lexer);
+		newExp = OptimizeLogicAnd(newExp);
 		exp = newExp;
 	}
 	return exp;
@@ -809,6 +852,7 @@ ExpPtr ParseExp12(LexerPtr lexer)
 		newExp->Cast<BinopExp>()->Op = res.kind;
 		newExp->Cast<BinopExp>()->Exp1 = exp;
 		newExp->Cast<BinopExp>()->Exp2 = ParseExp11(lexer);
+		newExp = OptimizeLogicOr(newExp);
 		exp = newExp;
 	}
 	return exp;
@@ -980,4 +1024,370 @@ ExpPtr ParsePrefixExp(LexerPtr lexer)
 		exp = ParseParensExp(lexer);
 	}
 	return exp;
+}
+
+// optimizer
+
+ExpPtr OptimizeLogicOr(ExpPtr exp)
+{
+	BinopExp* binExp = exp->Cast<BinopExp>();
+	panic_cond(binExp, "expression must be a binary operation");
+	if(IsTrue(binExp->Exp1))
+	{
+		return binExp->Exp1;
+	}
+	if(IsFalse(binExp->Exp1) && !IsVarargOrFuncCall(binExp->Exp2))
+	{
+		return binExp->Exp2;
+	}
+	return exp;
+}
+
+ExpPtr OptimizeLogicAnd(ExpPtr exp)
+{
+	BinopExp* binExp = exp->Cast<BinopExp>();
+	panic_cond(binExp, "expression must be a binary operation");
+	if(IsFalse(binExp->Exp1))
+	{
+		return binExp->Exp1;
+	}
+	if(IsTrue(binExp->Exp1) && !IsVarargOrFuncCall(binExp->Exp2))
+	{
+		return binExp->Exp2;
+	}
+	return exp;
+}
+
+ExpPtr OptimizeBitwiseBinaryOp(ExpPtr exp)
+{
+	BinopExp* binExp = exp->Cast<BinopExp>();
+	panic_cond(binExp, "expression must be a binary operation");
+	if(binExp->Exp1->IsA<IntegerExp>() && binExp->Exp2->IsA<IntegerExp>())
+	{
+		IntegerExp* i = binExp->Exp1->Cast<IntegerExp>();
+		IntegerExp* j = binExp->Exp2->Cast<IntegerExp>();
+		switch(binExp->Op)
+		{
+			case TOKEN_OP_BAND:
+			{
+				ExpPtr newExp = Exp::New<IntegerExp>();
+				newExp->Cast<IntegerExp>()->Line = binExp->Line;
+				newExp->Cast<IntegerExp>()->Val = i->Val & j->Val;
+				return newExp;
+			}
+			case TOKEN_OP_BOR:
+			{
+				ExpPtr newExp = Exp::New<IntegerExp>();
+				newExp->Cast<IntegerExp>()->Line = binExp->Line;
+				newExp->Cast<IntegerExp>()->Val = i->Val | j->Val;
+				return newExp;
+			}
+			case TOKEN_OP_BXOR:
+			{
+				ExpPtr newExp = Exp::New<IntegerExp>();
+				newExp->Cast<IntegerExp>()->Line = binExp->Line;
+				newExp->Cast<IntegerExp>()->Val = i->Val ^ j->Val;
+				return newExp;
+			}
+			case TOKEN_OP_SHL:
+			{
+				ExpPtr newExp = Exp::New<IntegerExp>();
+				newExp->Cast<IntegerExp>()->Line = binExp->Line;
+				newExp->Cast<IntegerExp>()->Val = ShiftLeft(i->Val, j->Val);
+				return newExp;
+			}
+			case TOKEN_OP_SHR:
+			{
+				ExpPtr newExp = Exp::New<IntegerExp>();
+				newExp->Cast<IntegerExp>()->Line = binExp->Line;
+				newExp->Cast<IntegerExp>()->Val = ShiftRight(i->Val, j->Val);
+				return newExp;
+			}
+		}
+	}
+	return exp;
+}
+
+ExpPtr OptimizeArithBinaryOp(ExpPtr exp)
+{
+	BinopExp* binExp = exp->Cast<BinopExp>();
+	panic_cond(binExp, "expression must be a binary operation");
+	if(binExp->Exp1->IsA<IntegerExp>() && binExp->Exp2->IsA<IntegerExp>())
+	{
+		IntegerExp* x = binExp->Exp1->Cast<IntegerExp>();
+		IntegerExp* y = binExp->Exp2->Cast<IntegerExp>();
+		// TOKEN_OP_DIV is not processed here,
+		// and handed over to the following float logic processing
+		switch (binExp->Op)
+		{
+			case TOKEN_OP_ADD:
+			{
+				ExpPtr newExp = Exp::New<IntegerExp>();
+				newExp->Cast<IntegerExp>()->Line = binExp->Line;
+				newExp->Cast<IntegerExp>()->Val = x->Val + y->Val;
+				return newExp;
+			}
+			case TOKEN_OP_SUB:
+			{
+				ExpPtr newExp = Exp::New<IntegerExp>();
+				newExp->Cast<IntegerExp>()->Line = binExp->Line;
+				newExp->Cast<IntegerExp>()->Val = x->Val - y->Val;
+				return newExp;
+			}
+			case TOKEN_OP_MUL:
+			{
+				ExpPtr newExp = Exp::New<IntegerExp>();
+				newExp->Cast<IntegerExp>()->Line = binExp->Line;
+				newExp->Cast<IntegerExp>()->Val = x->Val * y->Val;
+				return newExp;
+			}
+			case TOKEN_OP_IDIV:
+			{
+				if(y->Val != 0)
+				{
+					ExpPtr newExp = Exp::New<IntegerExp>();
+					newExp->Cast<IntegerExp>()->Line = binExp->Line;
+					newExp->Cast<IntegerExp>()->Val = IFloorDiv(x->Val, y->Val);
+					return newExp;
+				}
+			}
+			case TOKEN_OP_MOD:
+			{
+				if(y->Val != 0)
+				{
+					ExpPtr newExp = Exp::New<IntegerExp>();
+					newExp->Cast<IntegerExp>()->Line = binExp->Line;
+					newExp->Cast<IntegerExp>()->Val = IMod(x->Val, y->Val);
+					return newExp;
+				}
+			}
+		}
+	}
+
+	auto xPair = CastToFloat(binExp->Exp1);
+	auto yPair = CastToFloat(binExp->Exp2);
+	if(std::get<1>(xPair) && std::get<1>(yPair))
+	{
+		float x = std::get<0>(xPair);
+		float y = std::get<0>(yPair);
+		switch (binExp->Op)
+		{
+			case TOKEN_OP_ADD:
+			{
+				ExpPtr newExp = Exp::New<FloatExp>();
+				newExp->Cast<FloatExp>()->Line = binExp->Line;
+				newExp->Cast<FloatExp>()->Val = x + y;
+				return newExp;
+			}
+			case TOKEN_OP_SUB:
+			{
+				ExpPtr newExp = Exp::New<FloatExp>();
+				newExp->Cast<FloatExp>()->Line = binExp->Line;
+				newExp->Cast<FloatExp>()->Val = x - y;
+				return newExp;
+			}
+			case TOKEN_OP_MUL:
+			{
+				ExpPtr newExp = Exp::New<FloatExp>();
+				newExp->Cast<FloatExp>()->Line = binExp->Line;
+				newExp->Cast<FloatExp>()->Val = x * y;
+				return newExp;
+			}
+			case TOKEN_OP_DIV:
+			{
+				if(y != 0)
+				{
+					ExpPtr newExp = Exp::New<FloatExp>();
+					newExp->Cast<FloatExp>()->Line = binExp->Line;
+					newExp->Cast<FloatExp>()->Val = x / y;
+					return newExp;
+				}
+			}
+			case TOKEN_OP_IDIV:
+			{
+				if(y != 0)
+				{
+					ExpPtr newExp = Exp::New<FloatExp>();
+					newExp->Cast<FloatExp>()->Line = binExp->Line;
+					newExp->Cast<FloatExp>()->Val = FFloorDiv(x, y);
+					return newExp;
+				}
+			}
+			case TOKEN_OP_MOD:
+			{
+				if(y != 0)
+				{
+					ExpPtr newExp = Exp::New<IntegerExp>();
+					newExp->Cast<IntegerExp>()->Line = binExp->Line;
+					newExp->Cast<IntegerExp>()->Val = FMod(x, y);
+					return newExp;
+				}
+			}
+			case TOKEN_OP_POW:
+			{
+				ExpPtr newExp = Exp::New<FloatExp>();
+				newExp->Cast<FloatExp>()->Line = binExp->Line;
+				newExp->Cast<FloatExp>()->Val = pow(x, y);
+				return newExp;
+			}
+		}
+	}
+	return exp;
+}
+
+ExpPtr OptimizePow(ExpPtr exp)
+{
+	if(exp->IsA<BinopExp>())
+	{
+		BinopExp* binExp = exp->Cast<BinopExp>();
+		if(binExp->Op == TOKEN_OP_POW)
+		{
+			binExp->Exp2 = OptimizePow(binExp->Exp2);
+		}
+		return OptimizeArithBinaryOp(exp);
+	}
+	return exp;
+}
+
+ExpPtr OptimizeUnaryOp(ExpPtr exp)
+{
+	UnopExp* unExp = exp->Cast<UnopExp>();
+	panic_cond(unExp, "expression must be a unary operation");
+	switch(unExp->Op)
+	{
+		case TOKEN_OP_UNM:
+			return OptimizeUnm(exp);
+		case TOKEN_OP_NOT:
+			return OptimizeNot(exp);
+		case TOKEN_OP_BNOT:
+			return OptimizeBnot(exp);
+		default:
+			return exp;
+	}
+}
+
+ExpPtr OptimizeUnm(ExpPtr exp)
+{
+	UnopExp* unExp = exp->Cast<UnopExp>();
+	panic_cond(unExp, "expression must be a unary operation");
+	ExpPtr soulExp = unExp->Exp;
+	if(soulExp->IsA<IntegerExp>())
+	{
+		IntegerExp* x = soulExp->Cast<IntegerExp>();
+		x->Val = -x->Val;
+		return soulExp;
+	}
+	if(soulExp->IsA<FloatExp>())
+	{
+		FloatExp* x = soulExp->Cast<FloatExp>();
+		// There is a difference between -0 and +0.
+		if(x->Val != 0)
+		{
+			x->Val = -x->Val;
+			return soulExp;
+		}
+	}
+	return exp;
+}
+
+ExpPtr OptimizeNot(ExpPtr exp)
+{
+	UnopExp* unExp = exp->Cast<UnopExp>();
+	panic_cond(unExp, "expression must be a unary operation");
+	ExpPtr soulExp = unExp->Exp;
+	if(soulExp->IsA<NilExp>() || soulExp->IsA<FalseExp>())
+	{
+		ExpPtr newExp = Exp::New<TrueExp>();
+		newExp->Cast<TrueExp>()->Line = unExp->Line;
+		return newExp;
+	}
+	if(soulExp->IsA<TrueExp>() || soulExp->IsA<IntegerExp>()
+	|| soulExp->IsA<FloatExp>() || soulExp->IsA<StringExp>())
+	{
+		ExpPtr newExp = Exp::New<FalseExp>();
+		newExp->Cast<FalseExp>()->Line = unExp->Line;
+		return newExp;
+	}
+	return exp;
+}
+
+ExpPtr OptimizeBnot(ExpPtr exp)
+{
+	UnopExp* unExp = exp->Cast<UnopExp>();
+	panic_cond(unExp, "expression must be a unary operation");
+	ExpPtr soulExp = unExp->Exp;
+	if(soulExp->IsA<IntegerExp>())
+	{
+		IntegerExp* x = soulExp->Cast<IntegerExp>();
+		x->Val = ~x->Val;
+		return soulExp;
+	}
+	if(soulExp->IsA<FloatExp>())
+	{
+		FloatExp* x = soulExp->Cast<FloatExp>();
+		auto toInt = FloatToInteger(x->Val);
+		if(std::get<1>(toInt))
+		{
+			Int64 val = std::get<0>(toInt);
+			ExpPtr newExp = Exp::New<IntegerExp>();
+			newExp->Cast<IntegerExp>()->Line = x->Line;
+			newExp->Cast<IntegerExp>()->Val = ~val;
+			return newExp;
+		}
+	}
+	return exp;
+}
+
+bool IsFalse(ExpPtr exp)
+{
+	if(exp->IsA<FalseExp>() || exp->IsA<NilExp>())
+		return true;
+	return false;
+}
+
+bool IsTrue(ExpPtr exp)
+{
+	if(exp->IsA<TrueExp>() || exp->IsA<IntegerExp>()
+		|| exp->IsA<FloatExp>() || exp->IsA<StringExp>())
+		return true;
+	return false;
+}
+
+bool IsVarargOrFuncCall(ExpPtr exp)
+{
+	if(exp->IsA<VarargExp>() || exp->IsA<FuncCallExp>())
+		return true;
+	return false;
+}
+
+std::tuple<Int64, bool> CastToInt(ExpPtr exp)
+{
+	if(exp->IsA<IntegerExp>())
+	{
+		return std::make_pair(
+			exp->Cast<IntegerExp>()->Val,
+			true);
+	}
+	if(exp->IsA<FloatExp>())
+	{
+		return FloatToInteger(exp->Cast<FloatExp>()->Val);
+	}
+	return std::make_pair(0, false);
+}
+
+std::tuple<Float64, bool> CastToFloat(ExpPtr exp)
+{
+	if(exp->IsA<IntegerExp>())
+	{
+		return std::make_pair(
+			(Float64)exp->Cast<IntegerExp>()->Val,
+			true);
+	}
+	if(exp->IsA<FloatExp>())
+	{
+		return std::make_pair(
+			exp->Cast<FloatExp>()->Val,
+			true);
+	}
+	return std::make_pair(0, false);
 }
