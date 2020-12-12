@@ -5,3 +5,4 @@
 ExpPtr ParseExp(LexerPtr lexer);
 ExpArray ParseExpList(LexerPtr lexer);
 ExpPtr ParsePrefixExp(LexerPtr lexer);
+ExpPtr ParseFuncDefExp(LexerPtr lexer);

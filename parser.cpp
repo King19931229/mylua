@@ -206,7 +206,7 @@ StatPtr _FinishLocalFuncDefStat(LexerPtr lexer)
 	lexer->NextTokenKind(TOKEN_KW_FUNCTION);
 	String name = lexer->NextIdentifier().token;
 	// function body
-	ExpPtr fdExp;// todo = ParseFuncDefExp(lexer);
+	ExpPtr fdExp = ParseFuncDefExp(lexer);
 
 	StatPtr funcDef = Stat::New<LocalFuncDefStat>();
 	funcDef->Cast<LocalFuncDefStat>()->Name = name;
@@ -233,10 +233,68 @@ StatPtr _FinishLocalVarDeclStat(LexerPtr lexer)
 	return varDecl;
 }
 
+std::tuple<ExpPtr, bool> _ParseFuncName(LexerPtr lexer)
+{
+	TokenKindResult res = lexer->NextIdentifier();
+	ExpPtr exp = Exp::New<NameExp>();
+	exp->Cast<NameExp>()->Line = res.line;
+	exp->Cast<NameExp>()->Name = res.token;
+
+	bool hasColon = false;
+	while(lexer->LookAhead() == TOKEN_SEP_DOT)
+	{
+		lexer->NextToken();
+		res = lexer->NextIdentifier();
+
+		ExpPtr idx = Exp::New<StringExp>();	
+		idx->Cast<StringExp>()->Line = res.line;
+		idx->Cast<StringExp>()->Val = res.token;
+
+		ExpPtr newExp = Exp::New<TableAccessExp>();
+		newExp->Cast<TableAccessExp>()->LastLine = res.line;
+		newExp->Cast<TableAccessExp>()->PrefixExp = exp;
+		newExp->Cast<TableAccessExp>()->KeyExp = idx;
+		exp = newExp;
+	}
+	if(lexer->LookAhead() == TOKEN_SEP_COLON)
+	{
+		lexer->NextToken();
+		res = lexer->NextIdentifier();
+
+		ExpPtr idx = Exp::New<StringExp>();	
+		idx->Cast<StringExp>()->Line = res.line;
+		idx->Cast<StringExp>()->Val = res.token;
+
+		ExpPtr newExp = Exp::New<TableAccessExp>();
+		newExp->Cast<TableAccessExp>()->LastLine = res.line;
+		newExp->Cast<TableAccessExp>()->PrefixExp = exp;
+		newExp->Cast<TableAccessExp>()->KeyExp = idx;
+		exp = newExp;
+		hasColon = true;
+	}
+
+	return std::make_tuple(exp, hasColon);
+}
+
 StatPtr ParseFuncDefStat(LexerPtr lexer)
 {
-	// todo
-	return ParseEmptyStat(lexer);
+	lexer->NextTokenKind(TOKEN_KW_FUNCTION);
+	auto funcNameAndColon = _ParseFuncName(lexer);
+	ExpPtr fnExp = std::get<0>(funcNameAndColon);
+	bool hasColon = std::get<1>(funcNameAndColon);
+	ExpPtr fdExp = ParseFuncDefExp(lexer);
+	FuncDefExp* funcDefExp = fdExp->Cast<FuncDefExp>();
+	panic_cond(funcDefExp, "must be a function def exp");
+	if(hasColon)
+	{
+		funcDefExp->ParList.insert(funcDefExp->ParList.begin(), "self");
+	}
+
+	StatPtr assign = Stat::New<AssignStat>();
+	assign->Cast<AssignStat>()->Line = funcDefExp->Line;
+	assign->Cast<AssignStat>()->VarList = {fnExp};
+	assign->Cast<AssignStat>()->ExpList = {fdExp};
+	return assign;
 }
 
 StatPtr ParseLocalAssignOrFuncDefStat(LexerPtr lexer)
