@@ -59,6 +59,7 @@ inline void panic(const char* message)
 {
 	// printf("panic exit: %s\n", message);
 	// exit(0);
+	printf("%s\n", message);
 	throw(String(message));
 }
 

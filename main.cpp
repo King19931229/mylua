@@ -8,6 +8,8 @@
 #include "number/parser.h"
 #include "state/api_arith.h"
 #include "compiler/lexer/lexer.h"
+#include "compiler/parser/parser.h"
+#include "compiler/dumper/dumper.h"
 
 int print(LuaState* ls)
 {
@@ -144,6 +146,14 @@ void testLexer(const String& chunk, const String& chunkName)
 	}
 }
 
+void testParser(const String& chunk, const String& chunkName)
+{
+	BlockPtr ast = Parse(chunk, chunkName);
+	FILE* fp = fopen("parser_tree.txt", "wb");
+	DumpBlock(ast, 0, fp);
+	fclose(fp);
+}
+
 int main()
 {
 	FILE* f = fopen("C:/LearnCompiler/lua-5.3.6/src/hello.lua", "rb");
@@ -167,7 +177,8 @@ int main()
 			chunk += c;
 		}
 
-		testLexer(chunk, "main");
+		//testLexer(chunk, "main");
+		testParser(chunk, "main");
 	}
 	// FILE* f = fopen("C:/LearnCompiler/lua-5.3.6/src/hello.luac", "rb");
 	// if (f)

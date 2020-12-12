@@ -95,6 +95,7 @@ StatPtr ParseIfStat(LexerPtr lexer)
 
 	lexer->NextTokenKind(TOKEN_KW_IF);
 	exps.emplace_back(ParseExp(lexer));
+	lexer->NextTokenKind(TOKEN_KW_THEN);
 	blocks.emplace_back(ParseBlock(lexer));
 
 	while(lexer->LookAhead() == TOKEN_KW_ELSEIF)
@@ -439,7 +440,7 @@ ExpArray ParseRetExps(LexerPtr lexer)
 			lexer->NextToken();
 			return exps;
 		default:
-			exps = ParseRetExps(lexer);
+			exps = ParseExpList(lexer);
 			if(lexer->LookAhead() == TOKEN_SEP_SEMI)
 			{
 				lexer->NextToken();
@@ -685,6 +686,8 @@ ExpPtr ParseExp0(LexerPtr lexer)
 		}
 		case TOKEN_KW_FUNCTION:
 		{
+			// Need to get rid of function keyword
+			lexer->NextToken();
 			exp = ParseFuncDefExp(lexer);
 			break;
 		}
@@ -1081,6 +1084,7 @@ ExpPtr ParsePrefixExp(LexerPtr lexer)
 	{
 		exp = ParseParensExp(lexer);
 	}
+	exp = _FinishPrefixExp(lexer, exp);
 	return exp;
 }
 
