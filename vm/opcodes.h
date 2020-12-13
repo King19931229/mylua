@@ -108,6 +108,9 @@ struct OpCode
 extern const OpCode opcodes[47];
 static_assert(sizeof(opcodes) / sizeof(OpCode) == OP_EXTRAARG + 1, "size check");
 
+constexpr int MAXARG_BX = (1 << 18) - 1;
+constexpr int MAXARG_sBX = MAXARG_BX >> 1;
+
 struct Instruction
 {
 	UInt32 value;
@@ -138,9 +141,6 @@ struct Instruction
 			int(value >> 14)
 		);
 	}
-
-	static constexpr int MAXARG_BX = (1 << 18) - 1;
-	static constexpr int MAXARG_sBX = MAXARG_BX >> 1;
 
 	inline std::tuple<int, int> /* a, sbx */ ABsBx() const
 	{
