@@ -227,10 +227,10 @@ StatPtr _FinishLocalVarDeclStat(LexerPtr lexer)
 	}
 	int lastLine = lexer->Line();
 
-	StatPtr varDecl = Stat::New<LocalVarDeclList>();
-	varDecl->Cast<LocalVarDeclList>()->Line = lastLine;
-	varDecl->Cast<LocalVarDeclList>()->NameList = std::move(nameList);
-	varDecl->Cast<LocalVarDeclList>()->ExpList = std::move(expList);
+	StatPtr varDecl = Stat::New<LocalVarDeclStat>();
+	varDecl->Cast<LocalVarDeclStat>()->Line = lastLine;
+	varDecl->Cast<LocalVarDeclStat>()->NameList = std::move(nameList);
+	varDecl->Cast<LocalVarDeclStat>()->ExpList = std::move(expList);
 	return varDecl;
 }
 

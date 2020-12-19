@@ -68,12 +68,18 @@ struct FuncInfo
 	// Bytecode
 	std::unordered_map<int, int> arithAndBitwiseBinops;
 	std::vector<UInt32> insts;
+	//
+	std::vector<FuncInfoPtr> subFuncs;
+	int numParams;
+	bool isVararg;
 
 	FuncInfo()
 	{
 		usedRegs = 0;
 		maxRegs = 0;
 		scopeLv = 0;
+		numParams = 0;
+		isVararg = false;
 
 		arithAndBitwiseBinops.insert({TOKEN_OP_ADD, OP_ADD});
 		arithAndBitwiseBinops.insert({TOKEN_OP_SUB, OP_SUB});
@@ -107,6 +113,29 @@ struct FuncInfo
 
 	int PC();
 	void FixSbx(int pc, int sBx);
+
+	void CGBlock(FuncInfoPtr fi, BlockPtr node);
+	void CGRetStat(FuncInfoPtr fi, const ExpArray& exps);
+
+	bool IsVarargOrFuncCall(ExpPtr exp);
+	void CloseOpenUpvals();
+	int GetJmpArgA();
+
+	void CGStat(FuncInfoPtr fi, StatPtr node);
+	void CGLocalFuncDefStat(FuncInfoPtr fi, StatPtr node);
+	void CGFuncCall(FuncInfoPtr fi, StatPtr node);
+	void CGBreakStat(FuncInfoPtr fi, StatPtr node);
+	void CGDoStat(FuncInfoPtr fi, StatPtr node);
+	void CGWhileStat(FuncInfoPtr fi, StatPtr node);
+	void CGRepeatStat(FuncInfoPtr fi, StatPtr node);
+	void CGIfStat(FuncInfoPtr fi, StatPtr node);
+	void CGForNumStat(FuncInfoPtr fi, StatPtr node);
+	void CGForInStat(FuncInfoPtr fi, StatPtr node);
+	void CGLocalVarDeclStat(FuncInfoPtr fi, StatPtr node);
+	void CGAssignStat(FuncInfoPtr fi, StatPtr node);
+
+	void CGExp(FuncInfoPtr fi, ExpPtr node, int a, int n) {}
+
 	void EmitABC(int opcode, int a, int b, int c);
 	void EmitABx(int opcode, int a, int bx);
 	void EmitAsBx(int opcode, int a, int b);
@@ -139,3 +168,12 @@ struct FuncInfo
 	void EmitUnaryOp(int op, int a, int b);
 	void EmitBinaryOp(int op, int a, int b, int c);
 };
+
+inline FuncInfoPtr NewFuncInfo(FuncInfoPtr parent, FuncDefExp* fd)
+{
+	FuncInfoPtr funcInfo = FuncInfoPtr(new FuncInfo());
+	funcInfo->parent = parent;
+	funcInfo->isVararg = fd->IsVararg;
+	funcInfo->numParams = (int)fd->ParList.size();
+	return funcInfo;
+}

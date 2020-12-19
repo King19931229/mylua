@@ -75,7 +75,7 @@ struct ForInStat : public Stat
 };
 
 // local namelist [= explist]
-struct LocalVarDeclList : public Stat
+struct LocalVarDeclStat : public Stat
 {
 	int Line;
 	StringArray NameList;

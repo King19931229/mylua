@@ -272,10 +272,10 @@ void DumpStat(StatPtr stat, int indent, FILE* fp)
 		DumpWithIndent("Block", indent + 1, fp);
 		DumpBlock(forStat->Block, indent + 1, fp);
 	}
-	if(stat->IsA<LocalVarDeclList>())
+	if(stat->IsA<LocalVarDeclStat>())
 	{
-		DumpWithIndent("LocalVarDeclList:", indent + 1, fp);
-		LocalVarDeclList* localStat = stat->Cast<LocalVarDeclList>();
+		DumpWithIndent("LocalVarDeclStat:", indent + 1, fp);
+		LocalVarDeclStat* localStat = stat->Cast<LocalVarDeclStat>();
 		DumpWithIndent(Format::FormatString("NameList"), indent + 1, fp);
 		for(const String& name : localStat->NameList)
 		{

@@ -224,6 +224,311 @@ void FuncInfo::FixSbx(int pc, int sBx)
 	insts[pc] = i;
 }
 
+void FuncInfo::CGBlock(FuncInfoPtr fi, BlockPtr node)
+{
+	for(StatPtr stat : node->Stats)
+	{
+		CGStat(fi, stat);
+	}
+
+	if(node->RetExps.size())
+	{
+		CGRetStat(fi, node->RetExps);
+	}
+}
+
+void FuncInfo::CGRetStat(FuncInfoPtr fi, const ExpArray& exps)
+{
+	int nExps = (int)exps.size();
+	if(nExps == 0)
+	{
+		fi->EmitReturn(0, 0);
+		return;
+	}
+	
+	bool multRet = IsVarargOrFuncCall(exps[nExps - 1]);
+	for(int i = 0; i < nExps; ++i)
+	{
+		ExpPtr exp = exps[i];
+		int r = fi->AllocReg();
+		if(i == nExps - 1 && multRet)
+		{
+			CGExp(fi, exp, r, -1);
+		}
+		else
+		{
+			CGExp(fi, exp, r, 1);
+		}
+	}
+	fi->FreeRegs(nExps);
+
+	int a = fi->usedRegs;
+	if(multRet)
+	{
+		// EmitABC(OP_RETURN, a, 0, 0);
+		fi->EmitReturn(a, -1);
+	}
+	else
+	{
+		fi->EmitReturn(a, nExps);
+	}
+}
+
+bool FuncInfo::IsVarargOrFuncCall(ExpPtr exp)
+{
+	if(exp->IsA<VarargExp>() || exp->IsA<FuncCallExp>())
+	{
+		return true;
+	}
+	return false;
+}
+
+void FuncInfo::CloseOpenUpvals()
+{
+	int a = GetJmpArgA();
+	if(a > 0)
+		EmitJmp(a, 0);
+}
+
+int FuncInfo::GetJmpArgA()
+{
+	bool hasCapturedLocVars = false;
+	int minSlotOfLocVars = maxRegs;
+	// For each local variable name
+	for(auto& pair : locNames)
+	{
+		LocVarInfoPtr locVar = pair.second;
+		if(locVar->scopeLv == scopeLv)
+		{
+			// Loop through all the variables that are on the current scopeLv
+			for(LocVarInfoPtr v = locVar; v != nullptr && v->scopeLv == scopeLv; v = v->prev)
+			{
+				if(v->captured)
+				{
+					hasCapturedLocVars = true;
+				}
+				if(v->slot < minSlotOfLocVars && v->name[0] != '(' /*why*/)
+				{
+					minSlotOfLocVars = v->slot;
+				}
+			}
+		}
+	}
+
+	if(hasCapturedLocVars)
+	{
+		// minSlotOfLocVars is the index of the first closed upvalue
+		return minSlotOfLocVars + 1;
+	}
+	else
+	{
+		return 0;
+	}
+}
+
+void FuncInfo::CGStat(FuncInfoPtr fi, StatPtr node)
+{
+	if(node->IsA<FuncCallStat>())
+		CGFuncCall(fi, node);
+	else if(node->IsA<BreakStat>())
+		CGBreakStat(fi, node);
+	else if(node->IsA<DoStat>())
+		CGDoStat(fi, node);
+	else if(node->IsA<RepeatStat>())
+		CGRepeatStat(fi, node);
+	else if(node->IsA<WhileStat>())
+		CGWhileStat(fi, node);
+	else if(node->IsA<IfStat>())
+		CGIfStat(fi, node);
+	else if(node->IsA<ForNumStat>())
+		CGForNumStat(fi, node);
+	else if(node->IsA<ForInStat>())
+		CGForInStat(fi, node);
+	else if(node->IsA<AssignStat>())
+		CGAssignStat(fi, node);
+	else if(node->IsA<LocalVarDeclStat>())
+		CGLocalVarDeclStat(fi, node);
+	else if(node->IsA<LocalFuncDefStat>())
+		CGLocalFuncDefStat(fi, node);
+	else
+		panic("not support right now");
+}
+
+void FuncInfo::CGLocalFuncDefStat(FuncInfoPtr fi, StatPtr node)
+{
+	// LocalFuncDefStat* stat = node->Cast<LocalFuncDefStat>();
+	// int r = fi->AddLocVar(stat->Name);
+	// todo CGFuncDefExp(fi, stat->Exp, r);
+}
+
+void FuncInfo::CGFuncCall(FuncInfoPtr fi, StatPtr node)
+{
+	// int r = fi->AllocReg();
+	// todo CGFuncCallExp(fi, node, r, 0);
+	// fi->FreeReg();
+}
+
+void FuncInfo::CGBreakStat(FuncInfoPtr fi, StatPtr node)
+{
+	// Add the break instruction first,
+	// and then backpatch it when exiting the scope
+	int pc = fi->EmitJmp(0, 0);
+	fi->AddBreakJmp(pc);
+}
+
+void FuncInfo::CGDoStat(FuncInfoPtr fi, StatPtr node)
+{
+	DoStat* stat = node->Cast<DoStat>();
+	fi->EnterScope(false);
+	CGBlock(fi, stat->Block);
+	fi->CloseOpenUpvals();
+	fi->ExitScope();
+}
+
+void FuncInfo::CGWhileStat(FuncInfoPtr fi, StatPtr node)
+{
+	WhileStat* stat = node->Cast<WhileStat>();
+	int pcBeforeExp = fi->PC();
+
+	int r = fi->AllocReg();
+	CGExp(fi, stat->Exp, r, 1);
+	fi->FreeReg();
+
+	// If the r result is true, then skip the next instruction
+	fi->EmitTest(r, 0);
+	// The jmp instruction will be backpatched later
+	int pcJmpToEnd = fi->EmitJmp(0, 0);
+
+	fi->EnterScope(true);
+	CGBlock(fi, stat->Block);
+	fi->CloseOpenUpvals();
+	fi->EmitJmp(0, pcBeforeExp - fi->PC() - 1);
+	fi->ExitScope();
+
+	// Now backpatch the jmp instruction
+	fi->FixSbx(pcJmpToEnd, fi->PC() - pcJmpToEnd);
+}
+
+void FuncInfo::CGRepeatStat(FuncInfoPtr fi, StatPtr node)
+{
+	RepeatStat* stat = node->Cast<RepeatStat>();	
+	fi->EnterScope(true);
+
+	int pcBeforeBlock = fi->PC();
+	CGBlock(fi, stat->Block);
+
+	int r = fi->AllocReg();
+	CGExp(fi, stat->Exp, r, 1);
+	fi->FreeReg();
+
+	// If the r result is true, then skip the next instruction
+	fi->EmitTest(r, 0);
+	fi->EmitJmp(fi->GetJmpArgA(), pcBeforeBlock - fi->PC() - 1);
+	fi->CloseOpenUpvals();
+
+	fi->ExitScope();
+}
+
+void FuncInfo::CGIfStat(FuncInfoPtr fi, StatPtr node)
+{
+	IfStat* stat = node->Cast<IfStat>();
+
+	std::vector<int> pcJmpToEnds;
+	pcJmpToEnds.resize(stat->Exps.size());
+
+	int pcJmpToNextExp = -1;
+	int nExps = (int)stat->Exps.size();
+	for(int i = 0; i < nExps; ++i)
+	{
+		ExpPtr exp = stat->Exps[i];
+
+		if(pcJmpToNextExp >= 0)
+		{
+			// Backpatch the previous JmpToNext
+			fi->FixSbx(pcJmpToNextExp, fi->PC() - pcJmpToNextExp);
+		}
+
+		int r = fi->AllocReg(); CGExp(fi, exp, r, 1); fi->FreeReg();
+		fi->EmitTest(r, 0); pcJmpToNextExp = fi->EmitJmp(0, 0);
+
+		fi->EnterScope(false);
+		CGBlock(fi, stat->Blocks[i]);
+		fi->ExitScope();
+
+		if(i  < (int)(stat->Exps.size() - 1))
+			pcJmpToEnds[i] = fi->EmitJmp(0, 0);
+		// The last JmpToEnd point to last JmpToNext
+		else
+			pcJmpToEnds[i] = pcJmpToNextExp;
+	}
+
+	// Backpatch all JmpToEnd
+	for(int pc : pcJmpToEnds)
+	{
+		fi->FixSbx(pc, fi->PC() - pc);
+	}
+}
+
+void FuncInfo::CGForNumStat(FuncInfoPtr fi, StatPtr node)
+{
+	ForNumStat* stat = node->Cast<ForNumStat>();	
+	fi->EnterScope(true);
+
+	StatPtr tempDecl = Stat::New<LocalVarDeclStat>();
+	tempDecl->Cast<LocalVarDeclStat>()->NameList = {"(for index)", "(for limit)", "(for step)"};
+	tempDecl->Cast<LocalVarDeclStat>()->ExpList = {stat->InitExp, stat->LimitExp, stat->StepExp};
+	
+	fi->AddLocVar(stat->VarName);
+	int a = fi->usedRegs - 4;
+	int pcForPrep = fi->EmitForPrep(a, 0);
+	CGBlock(fi, stat->Block); fi->CloseOpenUpvals();
+	int pcForLoop = fi->EmitForLoop(0, 0);
+
+	// pcForPrep + 1 + k = pcForLoop
+	fi->FixSbx(pcForPrep, pcForLoop - pcForPrep - 1);
+	// pcForLoop + 1 + k = pcForLoop + 1
+	fi->FixSbx(pcForLoop, pcForPrep - pcForLoop);
+
+	fi->ExitScope();
+}
+
+void FuncInfo::CGForInStat(FuncInfoPtr fi, StatPtr node)
+{
+	ForInStat* stat = node->Cast<ForInStat>();	
+	fi->EnterScope(true);
+
+	StatPtr tempDecl = Stat::New<LocalVarDeclStat>();
+	tempDecl->Cast<LocalVarDeclStat>()->NameList = {"(for generator)", "(for state)", "(for control)"};
+	tempDecl->Cast<LocalVarDeclStat>()->ExpList = stat->ExpList;
+
+	for(const String& name : stat->NameList)
+	{
+		fi->AddLocVar(name);
+	}
+
+	int pcJmpToTFC = fi->EmitJmp(0, 0);
+	CGBlock(fi, stat->Block); fi->CloseOpenUpvals();
+	// pcJmpToTFC + 1 + k = PC() + 1
+	fi->FixSbx(pcJmpToTFC, fi->PC() - pcJmpToTFC);
+
+	int rGenerator = fi->SlotOfLocVar("(for generator)");
+	fi->EmitTForCall(rGenerator, (int)stat->NameList.size());
+	// PC() + 1 + 1 + k = pcJmpToTFC + 1
+	fi->EmitTForCall(rGenerator + 2, pcJmpToTFC - fi->PC() - 1);
+
+	fi->ExitScope();
+}
+
+void FuncInfo::CGLocalVarDeclStat(FuncInfoPtr fi, StatPtr node)
+{
+
+}
+
+void FuncInfo::CGAssignStat(FuncInfoPtr fi, StatPtr node)
+{
+	
+}
+
 void FuncInfo::EmitABC(int opcode, int a, int b, int c)
 {
 	UInt32 i = b << 23 | c << 14 | a << 6 | opcode;
@@ -455,8 +760,11 @@ void FuncInfo::EmitBinaryOp(int op, int a, int b, int c)
 			case TOKEN_OP_GE:
 				EmitABC(OP_LE, 1, c, b);
 		}
+		// Skip the next instruction(r[a] = 0). r[a] = 1
 		EmitJmp(0, 1);
+		// r[a] = 0, skip the next instruction
 		EmitLoadBool(a, 0, 1);
+		// r[a] = 1
 		EmitLoadBool(a, 1, 0);
 	}
 }
