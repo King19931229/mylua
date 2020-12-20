@@ -4,6 +4,7 @@
 #include "api_compare.h"
 #include "binchunk/binary_chunk.h"
 #include "binchunk/reader.h"
+#include "compiler/compiler.h"
 
 enum ArithOp
 {
@@ -505,9 +506,35 @@ struct LuaState
 		s->prev = nullptr;
 	}
 
+	bool IsBinaryChunk(const ByteArray& chunk)
+	{
+		if(chunk.size() >= 4)
+		{
+			Byte signature[4];
+			static_assert(sizeof(signature) == sizeof(UInt32), "size check");
+			memcpy(signature, chunk.data(), sizeof(signature));
+			return memcmp(signature, LUA_SIGNATURE, sizeof(signature)) == 0;
+		}
+		return false;
+	}
+
 	int Load(const ByteArray& chunk, const String& chunkName, const String& mode)
 	{
-		PrototypePtr proto = Undump(chunk);
+		PrototypePtr proto = nullptr;
+		if(IsBinaryChunk(chunk))
+		{
+			proto = Undump(chunk);
+		}
+		else
+		{
+			String strChunk;
+			strChunk.reserve(chunk.size());
+			for(Byte ch : chunk)
+			{
+				strChunk += ch;
+			}
+			proto = Compile(strChunk, chunkName);
+		}
 		ClosurePtr closure = NewLuaClosure(proto);
 		stack->Push(LuaValue(closure));
 		if(proto->Upvalues.size() > 0)
@@ -531,7 +558,9 @@ struct LuaState
 #endif
 			inst.Execute(this);
 #if DEBUG_PRINT_ENABLE
+			puts("----------Print Stack Begin----------");
 			PrintStack(*this);
+			puts("----------Print Stack Finish----------");
 #endif
 			if(inst.Opcode() == OP_RETURN)
 				break;

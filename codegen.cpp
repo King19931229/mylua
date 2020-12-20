@@ -43,7 +43,7 @@ int FuncInfo::AllocRegs(int n)
 
 void FuncInfo::FreeRegs(int n)
 {
-	panic_cond(n > 0, "n must > 0");
+	panic_cond(n >= 0, "n must >= 0");
 	for(int i = 0; i < n; ++i)
 	{
 		FreeReg();
@@ -127,11 +127,11 @@ void FuncInfo::ExitScope()
 		}
 	}
 
+	panic_cond(breaks.size() > 0, "break table is empty");
 	BreakTableElemPtr pendingBreakJmps = breaks[breaks.size() - 1];
-	breaks.pop_back();
-	int a = GetJmpArgA();
 	if(pendingBreakJmps)
 	{
+		int a = GetJmpArgA();
 		for(int pc : *pendingBreakJmps)
 		{
 			int sBx = PC() - pc;
@@ -198,14 +198,17 @@ int FuncInfo::IndexOfUpval(const String& name)
 		else
 		{
 			int uvIdx = parent->IndexOfUpval(name);
-			int idx = (int)upvalues.size();
-			UpvalInfoPtr upVal = UpvalInfoPtr(new UpvalInfo());
-			upVal->locVarSlot = -1;
-			upVal->upvalIndex = uvIdx;
-			upVal->index = idx;
+			if(uvIdx >= 0)
+			{
+				int idx = (int)upvalues.size();
+				UpvalInfoPtr upVal = UpvalInfoPtr(new UpvalInfo());
+				upVal->locVarSlot = -1;
+				upVal->upvalIndex = uvIdx;
+				upVal->index = idx;
 
-			upvalues[name] = upVal;
-			return idx;
+				upvalues[name] = upVal;
+				return idx;
+			}
 		}
 	}
 	return -1;
@@ -922,6 +925,7 @@ void CGNameExp(FuncInfoPtr fi, ExpPtr node, int a)
 		int idx = fi->IndexOfUpval(exp->Name);
 		if(idx >= 0)
 		{
+			// LUA_REGISTRYINDEX - 1 - idx
 			fi->EmitGetUpval(a, idx);
 		}
 		else
@@ -951,7 +955,7 @@ void CGTableAceessExp(FuncInfoPtr fi, ExpPtr node, int a)
 	CGExp(fi, exp->PrefixExp, b, 1);
 	int c = fi->AllocReg();
 	CGExp(fi, exp->KeyExp, c, 1);
-	fi->EmitGetTabUp(a, b, c);
+	fi->EmitGetTable(a, b, c);
 	fi->FreeRegs(2);
 }
 
@@ -1009,24 +1013,48 @@ void FuncInfo::EmitABC(int opcode, int a, int b, int c)
 {
 	UInt32 i = b << 23 | c << 14 | a << 6 | opcode;
 	insts.emplace_back(i);
+#ifdef DEBUG_PRINT_ENABLE
+	Instruction inst = Instruction(i);
+	DEBUG_PRINT("%s", inst.OpName().c_str());
+	Prototype::PrintOperands(inst);
+	puts("");
+#endif
 }
 
 void FuncInfo::EmitABx(int opcode, int a, int bx)
 {
 	UInt32 i = bx << 14 | a << 6 | opcode;
 	insts.emplace_back(i);
+#ifdef DEBUG_PRINT_ENABLE
+	Instruction inst = Instruction(i);
+	DEBUG_PRINT("%s", inst.OpName().c_str());
+	Prototype::PrintOperands(inst);
+	puts("");
+#endif
 }
 
 void FuncInfo::EmitAsBx(int opcode, int a, int b)
 {
 	UInt32 i = (b + MAXARG_sBX) << 14 | a << 6 | opcode;
 	insts.emplace_back(i);
+#ifdef DEBUG_PRINT_ENABLE
+	Instruction inst = Instruction(i);
+	DEBUG_PRINT("%s", inst.OpName().c_str());
+	Prototype::PrintOperands(inst);
+	puts("");
+#endif
 }
 
 void FuncInfo::EmitAx(int opcode, int a)
 {
 	UInt32 i = a << 6 | opcode;
 	insts.emplace_back(i);
+#ifdef DEBUG_PRINT_ENABLE
+	Instruction inst = Instruction(i);
+	DEBUG_PRINT("%s", inst.OpName().c_str());
+	Prototype::PrintOperands(inst);
+	puts("");
+#endif
 }
 
 // r[a] = r[b]
@@ -1053,7 +1081,7 @@ void FuncInfo::EmitLoadK(int a, const LuaValue& k)
 	int idx = IndexOfConstant(k);
 	if(idx < (1 << 18))
 	{
-		EmitABx(OP_LOADKX, a, idx);
+		EmitABx(OP_LOADK, a, idx);
 	}
 	else
 	{

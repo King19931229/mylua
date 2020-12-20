@@ -156,6 +156,7 @@ void testParser(const String& chunk, const String& chunkName)
 
 int main()
 {
+#if 0
 	FILE* f = fopen("C:/LearnCompiler/lua-5.3.6/src/hello.lua", "rb");
 	if (f)
 	{
@@ -180,32 +181,34 @@ int main()
 		//testLexer(chunk, "main");
 		testParser(chunk, "main");
 	}
-	// FILE* f = fopen("C:/LearnCompiler/lua-5.3.6/src/hello.luac", "rb");
-	// if (f)
-	// {
-	// 	fseek(f, 0, SEEK_END);
-	// 	long size = ftell(f);
-	// 	fseek(f, 0, SEEK_SET);
+#else
+	//FILE* f = fopen("C:/LearnCompiler/lua-5.3.6/src/hello.luac", "rb");
+	FILE* f = fopen("C:/LearnCompiler/lua-5.3.6/src/hello.lua", "rb");
+	if (f)
+	{
+		fseek(f, 0, SEEK_END);
+		long size = ftell(f);
+		fseek(f, 0, SEEK_SET);
 
-	// 	std::vector<Byte> buffer;
-	// 	buffer.resize(size + 1);
-	// 	buffer[size] = 0;
+		std::vector<Byte> buffer;
+		buffer.resize(size);
+		fread(buffer.data(), 1, size, f);
+		fclose(f);
+		f = NULL;
 
-	// 	fread(buffer.data(), 1, size, f);
-	// 	fclose(f);
-	// 	f = NULL;
-
-	// 	LuaStatePtr state = NewLuaState();
-	// 	state->Register("print", print);
-	// 	state->Register("getmetatable", getMetatable);
-	// 	state->Register("setmetatable", setMetatable);
-	// 	state->Register("next", next);
-	// 	state->Register("pairs", pairs);
-	// 	state->Register("ipairs", ipairs);
-	// 	state->Register("error", error);
-	// 	state->Register("pcall", pcall);
-	// 	state->Load(buffer, "chunk", "b");
-	// 	state->Call(0, 0);
-	// }
+		LuaStatePtr state = NewLuaState();
+		state->Register("print", print);
+		state->Register("getmetatable", getMetatable);
+		state->Register("setmetatable", setMetatable);
+		state->Register("next", next);
+		state->Register("pairs", pairs);
+		state->Register("ipairs", ipairs);
+		state->Register("error", error);
+		state->Register("pcall", pcall);
+		state->Load(buffer, "chunk", "b");
+		PrintStack(*state);
+		state->Call(0, 0);
+	}
+#endif
 	system("pause");
 }

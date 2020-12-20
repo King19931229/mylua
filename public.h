@@ -68,7 +68,7 @@ inline void warning(const char* message)
 	printf("warning: %s\n", message);
 }
 
-//#define VERBOSE_PRINT
+#define VERBOSE_PRINT
 
 #if defined(_DEBUG) && defined(VERBOSE_PRINT)
 #define DEBUG_PRINT_ENABLE 1
@@ -77,7 +77,7 @@ inline void warning(const char* message)
 #endif
 
 #if DEBUG_PRINT_ENABLE
-	#define DEBUG_PRINT(...) printf("[Debug] "); printf(__VA_ARGS__); printf("\n");
+	#define DEBUG_PRINT(...) printf("[Debug]: "); printf(__VA_ARGS__); printf("\n");
 #else
 	#define DEBUG_PRINT(...)
 #endif

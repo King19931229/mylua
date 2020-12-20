@@ -81,6 +81,7 @@ struct FuncInfo
 		scopeLv = 0;
 		numParams = 0;
 		isVararg = false;
+		breaks = {nullptr};
 
 		arithAndBitwiseBinops.insert({TOKEN_OP_ADD, OP_ADD});
 		arithAndBitwiseBinops.insert({TOKEN_OP_SUB, OP_SUB});
