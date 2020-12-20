@@ -226,7 +226,7 @@ void FuncInfo::FixSbx(int pc, int sBx)
 	insts[pc] = i;
 }
 
-void FuncInfo::CGBlock(FuncInfoPtr fi, BlockPtr node)
+void CGBlock(FuncInfoPtr fi, BlockPtr node)
 {
 	for(StatPtr stat : node->Stats)
 	{
@@ -239,7 +239,7 @@ void FuncInfo::CGBlock(FuncInfoPtr fi, BlockPtr node)
 	}
 }
 
-void FuncInfo::CGRetStat(FuncInfoPtr fi, const ExpArray& exps)
+void CGRetStat(FuncInfoPtr fi, const ExpArray& exps)
 {
 	int nExps = (int)exps.size();
 	if(nExps == 0)
@@ -276,7 +276,8 @@ void FuncInfo::CGRetStat(FuncInfoPtr fi, const ExpArray& exps)
 	}
 }
 
-bool FuncInfo::IsVarargOrFuncCall(ExpPtr exp)
+/*
+bool IsVarargOrFuncCall(ExpPtr exp)
 {
 	if(exp->IsA<VarargExp>() || exp->IsA<FuncCallExp>())
 	{
@@ -284,6 +285,7 @@ bool FuncInfo::IsVarargOrFuncCall(ExpPtr exp)
 	}
 	return false;
 }
+*/
 
 void FuncInfo::CloseOpenUpvals()
 {
@@ -328,7 +330,7 @@ int FuncInfo::GetJmpArgA()
 	}
 }
 
-void FuncInfo::CGStat(FuncInfoPtr fi, StatPtr node)
+void CGStat(FuncInfoPtr fi, StatPtr node)
 {
 	if(node->IsA<FuncCallStat>())
 		CGFuncCall(fi, node);
@@ -356,14 +358,14 @@ void FuncInfo::CGStat(FuncInfoPtr fi, StatPtr node)
 		panic("not support right now");
 }
 
-void FuncInfo::CGLocalFuncDefStat(FuncInfoPtr fi, StatPtr node)
+void CGLocalFuncDefStat(FuncInfoPtr fi, StatPtr node)
 {
 	LocalFuncDefStat* stat = node->Cast<LocalFuncDefStat>();
 	int r = fi->AddLocVar(stat->Name);
 	CGFuncDefExp(fi, stat->Exp, r);
 }
 
-void FuncInfo::CGFuncCall(FuncInfoPtr fi, StatPtr node)
+void CGFuncCall(FuncInfoPtr fi, StatPtr node)
 {
 	FuncCallStat* stat = node->Cast<FuncCallStat>();
 	ExpPtr exp = Exp::New<FuncCallExp>();
@@ -379,7 +381,7 @@ void FuncInfo::CGFuncCall(FuncInfoPtr fi, StatPtr node)
 	fi->FreeReg();
 }
 
-void FuncInfo::CGBreakStat(FuncInfoPtr fi, StatPtr node)
+void CGBreakStat(FuncInfoPtr fi, StatPtr node)
 {
 	// Add the break instruction first,
 	// and then backpatch it when exiting the scope
@@ -387,7 +389,7 @@ void FuncInfo::CGBreakStat(FuncInfoPtr fi, StatPtr node)
 	fi->AddBreakJmp(pc);
 }
 
-void FuncInfo::CGDoStat(FuncInfoPtr fi, StatPtr node)
+void CGDoStat(FuncInfoPtr fi, StatPtr node)
 {
 	DoStat* stat = node->Cast<DoStat>();
 	fi->EnterScope(false);
@@ -396,7 +398,7 @@ void FuncInfo::CGDoStat(FuncInfoPtr fi, StatPtr node)
 	fi->ExitScope();
 }
 
-void FuncInfo::CGWhileStat(FuncInfoPtr fi, StatPtr node)
+void CGWhileStat(FuncInfoPtr fi, StatPtr node)
 {
 	WhileStat* stat = node->Cast<WhileStat>();
 	int pcBeforeExp = fi->PC();
@@ -420,7 +422,7 @@ void FuncInfo::CGWhileStat(FuncInfoPtr fi, StatPtr node)
 	fi->FixSbx(pcJmpToEnd, fi->PC() - pcJmpToEnd);
 }
 
-void FuncInfo::CGRepeatStat(FuncInfoPtr fi, StatPtr node)
+void CGRepeatStat(FuncInfoPtr fi, StatPtr node)
 {
 	RepeatStat* stat = node->Cast<RepeatStat>();	
 	fi->EnterScope(true);
@@ -440,7 +442,7 @@ void FuncInfo::CGRepeatStat(FuncInfoPtr fi, StatPtr node)
 	fi->ExitScope();
 }
 
-void FuncInfo::CGIfStat(FuncInfoPtr fi, StatPtr node)
+void CGIfStat(FuncInfoPtr fi, StatPtr node)
 {
 	IfStat* stat = node->Cast<IfStat>();
 
@@ -480,7 +482,7 @@ void FuncInfo::CGIfStat(FuncInfoPtr fi, StatPtr node)
 	}
 }
 
-void FuncInfo::CGForNumStat(FuncInfoPtr fi, StatPtr node)
+void CGForNumStat(FuncInfoPtr fi, StatPtr node)
 {
 	ForNumStat* stat = node->Cast<ForNumStat>();	
 	fi->EnterScope(true);
@@ -503,7 +505,7 @@ void FuncInfo::CGForNumStat(FuncInfoPtr fi, StatPtr node)
 	fi->ExitScope();
 }
 
-void FuncInfo::CGForInStat(FuncInfoPtr fi, StatPtr node)
+void CGForInStat(FuncInfoPtr fi, StatPtr node)
 {
 	ForInStat* stat = node->Cast<ForInStat>();	
 	fi->EnterScope(true);
@@ -530,7 +532,7 @@ void FuncInfo::CGForInStat(FuncInfoPtr fi, StatPtr node)
 	fi->ExitScope();
 }
 
-void FuncInfo::CGLocalVarDeclStat(FuncInfoPtr fi, StatPtr node)
+void CGLocalVarDeclStat(FuncInfoPtr fi, StatPtr node)
 {
 	LocalVarDeclStat* stat = node->Cast<LocalVarDeclStat>();
 	int nExps = (int)stat->ExpList.size();
@@ -597,7 +599,7 @@ void FuncInfo::CGLocalVarDeclStat(FuncInfoPtr fi, StatPtr node)
 	}
 }
 
-void FuncInfo::CGAssignStat(FuncInfoPtr fi, StatPtr node)
+void CGAssignStat(FuncInfoPtr fi, StatPtr node)
 {
 	AssignStat* stat = node->Cast<AssignStat>();
 
@@ -711,7 +713,7 @@ void FuncInfo::CGAssignStat(FuncInfoPtr fi, StatPtr node)
 }
 
 // Put at most n values ​​of expression on register a
-void FuncInfo::CGExp(FuncInfoPtr fi, ExpPtr node, int a, int n)
+void CGExp(FuncInfoPtr fi, ExpPtr node, int a, int n)
 {
 	if(node->IsA<NilExp>())
 		fi->EmitLoadNil(a, n);
@@ -746,7 +748,7 @@ void FuncInfo::CGExp(FuncInfoPtr fi, ExpPtr node, int a, int n)
 }
 
 // n pass >=0 means read n parameters, n pass -1 means read all parameters
-void FuncInfo::CGVarargExp(FuncInfoPtr fi, ExpPtr node, int a, int n)
+void CGVarargExp(FuncInfoPtr fi, ExpPtr node, int a, int n)
 {
 	if(!fi->isVararg)
 	{
@@ -755,7 +757,7 @@ void FuncInfo::CGVarargExp(FuncInfoPtr fi, ExpPtr node, int a, int n)
 	fi->EmitVararg(a, n);
 }
 
-void FuncInfo::CGFuncDefExp(FuncInfoPtr fi, ExpPtr node, int a)
+void CGFuncDefExp(FuncInfoPtr fi, ExpPtr node, int a)
 {
 	FuncDefExp* exp = node->Cast<FuncDefExp>();
 	FuncInfoPtr subFI = NewFuncInfo(fi, exp);
@@ -775,7 +777,7 @@ void FuncInfo::CGFuncDefExp(FuncInfoPtr fi, ExpPtr node, int a)
 	fi->EmitClosure(a, bx);
 }
 
-void FuncInfo::CGTableConstructorExp(FuncInfoPtr fi, ExpPtr node, int a)
+void CGTableConstructorExp(FuncInfoPtr fi, ExpPtr node, int a)
 {
 	TableConstructorExp* exp = node->Cast<TableConstructorExp>();
 	int nArr = 0;
@@ -837,7 +839,7 @@ void FuncInfo::CGTableConstructorExp(FuncInfoPtr fi, ExpPtr node, int a)
 	}
 }
 
-void FuncInfo::CGUnopExp(FuncInfoPtr fi, ExpPtr node, int a)
+void CGUnopExp(FuncInfoPtr fi, ExpPtr node, int a)
 {
 	UnopExp* exp = node->Cast<UnopExp>();
 	int b = fi->AllocReg();
@@ -846,7 +848,7 @@ void FuncInfo::CGUnopExp(FuncInfoPtr fi, ExpPtr node, int a)
 	fi->FreeReg();
 }
 
-void FuncInfo::CGBinopExp(FuncInfoPtr fi, ExpPtr node, int a)
+void CGBinopExp(FuncInfoPtr fi, ExpPtr node, int a)
 {
 	BinopExp* exp = node->Cast<BinopExp>();
 	switch (exp->Op)
@@ -876,7 +878,7 @@ void FuncInfo::CGBinopExp(FuncInfoPtr fi, ExpPtr node, int a)
 			fi->FreeReg(); 
 
 			fi->EmitMove(a, b);
-			fi->FixSbx(pcOfJmp, PC() - pcOfJmp);
+			fi->FixSbx(pcOfJmp, fi->PC() - pcOfJmp);
 
 			break;
 		}
@@ -892,7 +894,7 @@ void FuncInfo::CGBinopExp(FuncInfoPtr fi, ExpPtr node, int a)
 	}
 }
 
-void FuncInfo::CGConcatExp(FuncInfoPtr fi, ExpPtr node, int a)
+void CGConcatExp(FuncInfoPtr fi, ExpPtr node, int a)
 {
 	ConcatExp* exp = node->Cast<ConcatExp>();
 	for(ExpPtr subExp : exp->Exps)
@@ -907,7 +909,7 @@ void FuncInfo::CGConcatExp(FuncInfoPtr fi, ExpPtr node, int a)
 	fi->EmitABC(OP_CONCAT, a, b, c);
 }
 
-void FuncInfo::CGNameExp(FuncInfoPtr fi, ExpPtr node, int a)
+void CGNameExp(FuncInfoPtr fi, ExpPtr node, int a)
 {
 	NameExp* exp = node->Cast<NameExp>();
 	int r = fi->SlotOfLocVar(exp->Name);
@@ -942,7 +944,7 @@ void FuncInfo::CGNameExp(FuncInfoPtr fi, ExpPtr node, int a)
 	}
 }
 
-void FuncInfo::CGTableAceessExp(FuncInfoPtr fi, ExpPtr node, int a)
+void CGTableAceessExp(FuncInfoPtr fi, ExpPtr node, int a)
 {
 	TableAccessExp* exp = node->Cast<TableAccessExp>();
 	int b = fi->AllocReg();
@@ -953,7 +955,7 @@ void FuncInfo::CGTableAceessExp(FuncInfoPtr fi, ExpPtr node, int a)
 	fi->FreeRegs(2);
 }
 
-int FuncInfo::PrepFuncCall(FuncInfoPtr fi, FuncCallExp* node, int a)
+int PrepFuncCall(FuncInfoPtr fi, FuncCallExp* node, int a)
 {
 	int nArgs = (int)node->Args.size();
 	bool lastArgIsVarargOrFuncCall = false;
@@ -997,7 +999,7 @@ int FuncInfo::PrepFuncCall(FuncInfoPtr fi, FuncCallExp* node, int a)
 	return nArgs;
 }
 
-void FuncInfo::CGFuncCallExp(FuncInfoPtr fi, ExpPtr node, int a, int n)
+void CGFuncCallExp(FuncInfoPtr fi, ExpPtr node, int a, int n)
 {
 	int nArgs = PrepFuncCall(fi, node->Cast<FuncCallExp>(), a);
 	fi->EmitCall(a, nArgs, n);
@@ -1063,7 +1065,7 @@ void FuncInfo::EmitLoadK(int a, const LuaValue& k)
 // r[a], r[a+1], ..., r[a+b-2] = vararg
 void FuncInfo::EmitVararg(int a, int n)
 {
-	// b - 1 = n ---> b = n + 1
+	// b - 1 = n --> b = n + 1
 	// b - 1 = n + 1 - 1 = n
 	EmitABC(OP_VARARG, a, n + 1, 0);
 }
@@ -1125,7 +1127,7 @@ void FuncInfo::EmitSetTabUp(int a, int b, int c)
 // r[a], ..., r[a+c-2] = r[a](r[a+1], ..., r[a+b-1])
 void FuncInfo::EmitCall(int a, int nArgs, int nRet)
 {
-	// b - 1 - 1 + 1 = nArgs ---> b = nArgs + 1
+	// b - 1 - 1 + 1 = nArgs --> b = nArgs + 1
 	// c - 1 = nRet --> c = nRet + 1
 	EmitABC(OP_CALL, a, nArgs + 1, nRet + 1);
 }
@@ -1241,4 +1243,120 @@ void FuncInfo::EmitBinaryOp(int op, int a, int b, int c)
 		// r[a] = 1
 		EmitLoadBool(a, 1, 0);
 	}
+}
+
+FuncInfoPtr NewFuncInfo(FuncInfoPtr parent, FuncDefExp* fd)
+{
+	FuncInfoPtr funcInfo = FuncInfoPtr(new FuncInfo());
+	funcInfo->parent = parent;
+	funcInfo->isVararg = fd->IsVararg;
+	funcInfo->numParams = (int)fd->ParList.size();
+	return funcInfo;
+}
+
+std::vector<PrototypePtr> ToProtos(const std::vector<FuncInfoPtr>& fis)
+{
+	std::vector<PrototypePtr> protos;
+	protos.resize(fis.size());
+	for(size_t i = 0; i < fis.size(); ++i)
+	{
+		protos[i] = ToProto(fis[i]);
+	}
+	return protos;
+}
+
+Constant GetConstant(const LuaValue& val)
+{
+	Constant constant;
+	if(val.IsBool())
+	{
+		constant.tag = TAG_BOOLEAN;
+		constant.boolean = val.boolean;
+	}
+	else if(val.IsFloat64())
+	{
+		constant.tag = TAG_NUMBER;
+		constant.luaNum = val.number;
+	}
+	else if(val.IsInt64())
+	{
+		constant.tag = TAG_INTEGER;
+		constant.luaInteger = val.integer;
+	}
+	else if(val.IsString())
+	{
+		if(val.str.length() > 253)
+			constant.tag = TAG_LONG_STR;
+		else
+			constant.tag = TAG_SHORT_STR;
+		constant.str = val.str;
+	}
+	else
+	{
+		constant.tag = TAG_NIL;
+	}
+	return constant;
+}
+
+std::vector<Constant> GetConstants(FuncInfoPtr fi)
+{
+	std::vector<Constant> consts;
+	consts.resize(fi->constants.size());
+	for(auto& pair : fi->constants)
+	{
+		const LuaValue& k = pair.first;
+		int idx = pair.second;
+		Constant constant = GetConstant(k);
+		consts[idx] = constant;
+	}
+	return consts;
+}
+
+std::vector<Upvalue> GetUpvalues(FuncInfoPtr fi)
+{
+	std::vector<Upvalue> upvals;
+	upvals.resize(fi->upvalues.size());
+	for(auto& pair : fi->upvalues)
+	{
+		UpvalInfoPtr uv = pair.second;
+		// instack
+		if(uv->locVarSlot >= 0)
+			upvals[uv->index] = Upvalue(1, (Byte)uv->locVarSlot);
+		else
+			upvals[uv->index] = Upvalue(0, (Byte)uv->upvalIndex);
+	}
+	return upvals;
+}
+
+PrototypePtr ToProto(FuncInfoPtr fi)
+{
+	PrototypePtr proto = PrototypePtr(new Prototype());
+	proto->NumParams = (Byte)fi->numParams;
+	proto->MaxStackSize = (Byte)fi->maxRegs;
+	proto->Code = fi->insts;
+	proto->Constants = GetConstants(fi);
+	proto->Upvalues = GetUpvalues(fi);
+	proto->Protos = ToProtos(fi->subFuncs);
+	proto->LineInfo = {};// debug
+	proto->LocVars = {};// debug
+	proto->UpvalueNames = {};// debug
+	proto->IsVararg = fi->isVararg;
+	return proto;
+}
+
+PrototypePtr GenProto(BlockPtr chunk)
+{
+	ExpPtr exp = Exp::New<FuncDefExp>();
+	FuncDefExp* fd = exp->Cast<FuncDefExp>();
+	// Fake main function which contains _ENV
+	// 	function __main(...)
+	// 		_ENV
+	// 		chunk -> main()
+	// end
+	fd->IsVararg = true;
+	fd->Block = chunk;
+	FuncInfoPtr fi = NewFuncInfo(nullptr, fd);
+	fi->AddLocVar("_ENV");
+	CGFuncDefExp(fi, exp, 0);
+	return ToProto(fi->subFuncs[0]);
 }

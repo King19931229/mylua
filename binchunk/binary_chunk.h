@@ -60,12 +60,29 @@ struct Constant
 		Float64 luaNum;
 	};
 	std::string str;
+
+	Constant()
+	{
+		tag = TAG_NIL;
+		luaInteger = 0;
+	}
 };
 
 struct Upvalue
 {
-	char Instack;
-	char Idx;
+	Byte Instack;
+	Byte Idx;
+
+	Upvalue()
+	{
+		Instack = 0;
+		Idx = 0;
+	}
+	Upvalue(Byte _Instack, Byte _Idx)
+	{
+		Instack = _Instack;
+		Idx = _Idx;
+	}
 };
 
 struct LocVar
@@ -88,7 +105,7 @@ struct Prototype
 	std::vector<Upvalue> Upvalues;
 	std::vector<PrototypePtr> Protos;
 	std::vector<UInt32> LineInfo;
-	std::vector<LocVar> LocVars; 
+	std::vector<LocVar> LocVars;
 	std::vector<std::string> UpvalueNames;
 
 	void PrintHeader() const
