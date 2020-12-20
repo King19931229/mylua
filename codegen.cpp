@@ -84,6 +84,8 @@ LocVarInfoPtr FuncInfo::_CurrentLocVar(const String& name)
 	return nullptr;
 }
 
+// Assign register to new local variable and connect the
+// new local variable with the previous local variable
 int FuncInfo::AddLocVar(const String& name)
 {
 	LocVarInfoPtr newVar = LocVarInfoPtr(new LocVarInfo());
@@ -127,7 +129,7 @@ void FuncInfo::ExitScope()
 
 	BreakTableElemPtr pendingBreakJmps = breaks[breaks.size() - 1];
 	breaks.pop_back();
-	int a = 0;//todo = GetJmpArgA();
+	int a = GetJmpArgA();
 	if(pendingBreakJmps)
 	{
 		for(int pc : *pendingBreakJmps)
@@ -356,16 +358,25 @@ void FuncInfo::CGStat(FuncInfoPtr fi, StatPtr node)
 
 void FuncInfo::CGLocalFuncDefStat(FuncInfoPtr fi, StatPtr node)
 {
-	// LocalFuncDefStat* stat = node->Cast<LocalFuncDefStat>();
-	// int r = fi->AddLocVar(stat->Name);
-	// todo CGFuncDefExp(fi, stat->Exp, r);
+	LocalFuncDefStat* stat = node->Cast<LocalFuncDefStat>();
+	int r = fi->AddLocVar(stat->Name);
+	CGFuncDefExp(fi, stat->Exp, r);
 }
 
 void FuncInfo::CGFuncCall(FuncInfoPtr fi, StatPtr node)
 {
-	// int r = fi->AllocReg();
-	// todo CGFuncCallExp(fi, node, r, 0);
-	// fi->FreeReg();
+	FuncCallStat* stat = node->Cast<FuncCallStat>();
+	ExpPtr exp = Exp::New<FuncCallExp>();
+
+	exp->Cast<FuncCallExp>()->Line = stat->Line;
+	exp->Cast<FuncCallExp>()->LastLine = stat->LastLine;
+	exp->Cast<FuncCallExp>()->PrefixExp = stat->PrefixExp;
+	exp->Cast<FuncCallExp>()->NameExp = stat->NameExp;
+	exp->Cast<FuncCallExp>()->Args = stat->Args;
+
+	int r = fi->AllocReg();
+	CGFuncCallExp(fi, exp, r, 0);
+	fi->FreeReg();
 }
 
 void FuncInfo::CGBreakStat(FuncInfoPtr fi, StatPtr node)
@@ -521,12 +532,475 @@ void FuncInfo::CGForInStat(FuncInfoPtr fi, StatPtr node)
 
 void FuncInfo::CGLocalVarDeclStat(FuncInfoPtr fi, StatPtr node)
 {
+	LocalVarDeclStat* stat = node->Cast<LocalVarDeclStat>();
+	int nExps = (int)stat->ExpList.size();
+	int nNames = (int)stat->NameList.size();
 
+	int oldRegs = fi->usedRegs;
+	if(nExps == nNames)
+	{
+		for(ExpPtr exp : stat->ExpList)
+		{
+			int a = fi->AllocReg();
+			CGExp(fi, exp, a, 1);
+		}
+	}
+	else if(nExps > nNames)
+	{
+		for(int i = 0; i < nExps; ++i)
+		{
+			ExpPtr exp = stat->ExpList[i];
+			int a = fi->AllocReg();
+			if(i == nExps - 1 && IsVarargOrFuncCall(exp))
+			{
+				CGExp(fi, exp, a, 0);
+			}
+			else
+			{
+				CGExp(fi, exp, a, 1);
+			}
+		}
+	}
+	else
+	{
+		bool multRet = false;
+		for(int i = 0; i < nExps; ++i)
+		{
+			ExpPtr exp = stat->ExpList[i];
+			int a = fi->AllocReg();
+			if(i == nExps - 1 && IsVarargOrFuncCall(exp))
+			{
+				multRet = true;
+				int n = nNames - nExps + 1;
+				fi->AllocRegs(n - 1);
+				CGExp(fi, exp, a, n);
+			}
+			else
+			{
+				CGExp(fi, exp, a, 1);
+			}
+		}
+
+		if(!multRet)
+		{
+			int n = nNames - nExps;
+			int a = fi->AllocRegs(n);
+			fi->EmitLoadNil(a, n);
+		}
+	}
+	// Reclaim the register
+	fi->usedRegs = oldRegs;
+	// Declare variables and bind to the register just used
+	for(const String& name : stat->NameList)
+	{
+		fi->AddLocVar(name);
+	}
 }
 
 void FuncInfo::CGAssignStat(FuncInfoPtr fi, StatPtr node)
 {
-	
+	AssignStat* stat = node->Cast<AssignStat>();
+
+	int nExps = (int)stat->ExpList.size();
+	int nVars = (int)stat->VarList.size();
+	int oldRegs = fi->usedRegs;
+	std::vector<int> tRegs; tRegs.resize(nVars);
+	std::vector<int> kRegs; kRegs.resize(nVars);
+	std::vector<int> vRegs; vRegs.resize(nVars);
+
+	for(int i = 0; i < nExps; ++i)
+	{
+		ExpPtr exp = stat->ExpList[i];
+		if(exp->IsA<TableAccessExp>())
+		{
+			TableAccessExp* taExp = exp->Cast<TableAccessExp>();
+			tRegs[i] = fi->AllocReg();
+			CGExp(fi, taExp->PrefixExp, tRegs[i], 1);
+			kRegs[i] = fi->AllocReg();
+			CGExp(fi, taExp->KeyExp, kRegs[i], 1);
+		}
+	}
+	// Although there is no register allocated,
+	// the position can be occupied first and will be allocated later
+	for(int i = 0; i < nVars; ++i)
+	{
+		vRegs[i] = fi->usedRegs + i;
+	}
+
+	if(nExps >= nVars)
+	{
+		for(int i = 0; i < nExps; ++i)
+		{
+			ExpPtr exp = stat->ExpList[i];
+			int a = fi->AllocReg();
+			// nExps > nVars and the last expression is a ... or funccall
+			if(i >= nVars && i == nExps - 1 && IsVarargOrFuncCall(exp))
+			{
+				CGExp(fi, exp, a, 0);
+			}
+			else
+			{
+				CGExp(fi, exp, a, 1);
+			}
+		}
+	}
+	else
+	{
+		bool multRet = false;
+		for(int i = 0; i < nExps; ++i)
+		{
+			ExpPtr exp = stat->ExpList[i];
+			int a = fi->AllocReg();
+			if(i == nExps - 1 && IsVarargOrFuncCall(exp))
+			{
+				multRet = true;
+				int n = nVars - nExps + 1;
+				fi->AllocRegs(n - 1);
+				CGExp(fi, exp, a, n);
+			}
+			else
+			{
+				CGExp(fi, exp, a, 1);
+			}
+		}
+		if(!multRet)
+		{
+			int n = nVars - nExps;
+			int a = fi->AllocRegs(n);
+			fi->EmitLoadNil(a, n);
+		}
+	}
+
+	for(int i = 0; i < nVars; ++i)
+	{
+		ExpPtr exp = stat->VarList[i];
+		if(exp->IsA<NameExp>())
+		{
+			NameExp* nameExp = exp->Cast<NameExp>();
+			const String& varName = nameExp->Name;
+			int a = fi->SlotOfLocVar(varName);
+			if(a >= 0)
+			{
+				// Local variable, copy the value of the expression calculated
+				// in the register to the register corresponding to the local variable
+				fi->EmitMove(a, vRegs[i]);
+			}
+			else
+			{
+				int b = fi->IndexOfUpval(varName);
+				if(b >= 0)
+				{
+					
+					// Upvalue variable, copy the value of the expression calculated
+					// in the register to the corresponding Upvalue table
+					fi->EmitSetUpval(vRegs[i], b);
+				}
+				else
+				{
+					int a = fi->IndexOfUpval("_ENV");
+					int b = 0x100 + fi->IndexOfConstant(LuaValue(varName));
+					// Global variable, copy the value of the expression calculated
+					// in the register to the corresponding global variable table
+					fi->EmitSetTabUp(a, b, vRegs[i]);
+				}
+			}
+		}
+	}
+
+	fi->usedRegs = oldRegs;
+}
+
+// Put at most n values ​​of expression on register a
+void FuncInfo::CGExp(FuncInfoPtr fi, ExpPtr node, int a, int n)
+{
+	if(node->IsA<NilExp>())
+		fi->EmitLoadNil(a, n);
+	else if(node->IsA<FalseExp>())
+		fi->EmitLoadBool(a, 0, 0);
+	else if(node->IsA<TrueExp>())
+		fi->EmitLoadBool(a, 1, 0);
+	else if(node->IsA<IntegerExp>())
+		fi->EmitLoadK(a, LuaValue(node->Cast<IntegerExp>()->Val));
+	else if(node->IsA<FloatExp>())
+		fi->EmitLoadK(a, LuaValue(node->Cast<FloatExp>()->Val));
+	else if(node->IsA<StringExp>())
+		fi->EmitLoadK(a, LuaValue(node->Cast<StringExp>()->Val));
+	else if(node->IsA<ParensExp>())
+		CGExp(fi, node->Cast<ParensExp>()->Exp, a, 1);
+	else if(node->IsA<VarargExp>())
+		CGVarargExp(fi, node, a, n);
+	else if(node->IsA<TableConstructorExp>())
+		CGTableConstructorExp(fi, node, a);
+	else if(node->IsA<UnopExp>())
+		CGUnopExp(fi, node, a);
+	else if(node->IsA<BinopExp>())
+		CGBinopExp(fi, node, a);
+	else if(node->IsA<ConcatExp>())
+		CGConcatExp(fi, node, a);
+	else if(node->IsA<NameExp>())
+		CGNameExp(fi, node, a);
+	else if(node->IsA<TableAccessExp>())
+		CGTableAceessExp(fi, node, a);
+	else if(node->IsA<FuncCallExp>())
+		CGFuncCallExp(fi, node, a, n);
+}
+
+// n pass >=0 means read n parameters, n pass -1 means read all parameters
+void FuncInfo::CGVarargExp(FuncInfoPtr fi, ExpPtr node, int a, int n)
+{
+	if(!fi->isVararg)
+	{
+		panic("cannot use \'...\' outside a vararg function");
+	}
+	fi->EmitVararg(a, n);
+}
+
+void FuncInfo::CGFuncDefExp(FuncInfoPtr fi, ExpPtr node, int a)
+{
+	FuncDefExp* exp = node->Cast<FuncDefExp>();
+	FuncInfoPtr subFI = NewFuncInfo(fi, exp);
+	fi->subFuncs.emplace_back(subFI);
+
+	for(const String& param : exp->ParList)
+	{
+		subFI->AddLocVar(param);
+	}
+
+	CGBlock(subFI, exp->Block);
+	// Exit the scope 0, clean up all local variables
+	subFI->ExitScope();
+	subFI->EmitReturn(0, 0);
+
+	int bx = (int)fi->subFuncs.size() - 1;
+	fi->EmitClosure(a, bx);
+}
+
+void FuncInfo::CGTableConstructorExp(FuncInfoPtr fi, ExpPtr node, int a)
+{
+	TableConstructorExp* exp = node->Cast<TableConstructorExp>();
+	int nArr = 0;
+	for(ExpPtr keyExp : exp->KeyExps)
+	{
+		if(keyExp == nullptr)
+			++nArr;
+	}
+	int nExps = (int)exp->KeyExps.size();
+	bool multRet = nExps > 0 && IsVarargOrFuncCall(exp->ValExps[nExps - 1]);
+
+	fi->EmitNewTable(a, nArr, nExps - nArr);
+
+	int arrIdx = 0;
+	for(int i = 0; i < nExps; ++i)
+	{
+		ExpPtr keyExp = exp->KeyExps[i];
+		ExpPtr valExp = exp->ValExps[i];
+		// array
+		if(keyExp == nullptr)
+		{
+			++arrIdx;
+			int tmp = fi->AllocReg();
+			if(i == nExps - 1 && multRet)
+			{
+				CGExp(fi, valExp, tmp, -1);
+			}
+			else
+			{
+				CGExp(fi, valExp, tmp, 1);
+			}
+
+			if(arrIdx % LFIELDS_PER_FLUSH == 0 || arrIdx == nArr)
+			{
+				int n = arrIdx % LFIELDS_PER_FLUSH;
+				if(n == 0)
+					n = LFIELDS_PER_FLUSH;
+				int c = (arrIdx - 1) / LFIELDS_PER_FLUSH + 1;
+				fi->FreeRegs(n);
+				if(i == nExps - 1 && multRet)
+				{
+					fi->EmitSetList(a, 0, c);
+				}
+				else
+				{
+					fi->EmitSetList(a, n, c);
+				}
+			}
+			continue;
+		}
+
+		int b = fi->AllocReg();
+		CGExp(fi, keyExp, b, 1);
+		int c = fi->AllocReg();
+		CGExp(fi, valExp, c, 1);
+		fi->FreeRegs(2);
+		// a[b] = c
+		fi->EmitSetTable(a, b, c);
+	}
+}
+
+void FuncInfo::CGUnopExp(FuncInfoPtr fi, ExpPtr node, int a)
+{
+	UnopExp* exp = node->Cast<UnopExp>();
+	int b = fi->AllocReg();
+	CGExp(fi, exp->Exp, b, 1);
+	fi->EmitUnaryOp(exp->Op, a, b);
+	fi->FreeReg();
+}
+
+void FuncInfo::CGBinopExp(FuncInfoPtr fi, ExpPtr node, int a)
+{
+	BinopExp* exp = node->Cast<BinopExp>();
+	switch (exp->Op)
+	{
+		case TOKEN_OP_AND:
+		case TOKEN_OP_OR:
+		{
+			int b = fi->AllocReg();
+			CGExp(fi, exp->Exp1, b, 1);
+			fi->FreeReg();
+
+			if(exp->Op == TOKEN_OP_AND)
+			{
+				// r[b] == 0 ? r[a] = r[b] : pc++
+				fi->EmitTestSet(a, b, 0);
+			}
+			else
+			{
+				// r[b] == 1 ? r[a] = r[b] : pc++
+				fi->EmitTestSet(a, b, 1);
+			}
+
+			int pcOfJmp = fi->EmitJmp(0, 0);
+
+			b = fi->AllocReg();
+			CGExp(fi, exp->Exp2, b, 1);
+			fi->FreeReg(); 
+
+			fi->EmitMove(a, b);
+			fi->FixSbx(pcOfJmp, PC() - pcOfJmp);
+
+			break;
+		}
+		default:
+		{
+			int b = fi->AllocReg();
+			CGExp(fi, exp->Exp1, b, 1);
+			int c = fi->AllocReg();
+			CGExp(fi, exp->Exp2, c, 1);
+			fi->EmitBinaryOp(exp->Op, a, b, c);
+			fi->FreeRegs(2);
+		}
+	}
+}
+
+void FuncInfo::CGConcatExp(FuncInfoPtr fi, ExpPtr node, int a)
+{
+	ConcatExp* exp = node->Cast<ConcatExp>();
+	for(ExpPtr subExp : exp->Exps)
+	{
+		int _a = fi->AllocReg();
+		CGExp(fi, subExp, _a, 1);
+	}
+
+	int c = fi->usedRegs - 1;
+	int b = c - (int)exp->Exps.size() + 1;
+	fi->FreeRegs(c - b + 1);
+	fi->EmitABC(OP_CONCAT, a, b, c);
+}
+
+void FuncInfo::CGNameExp(FuncInfoPtr fi, ExpPtr node, int a)
+{
+	NameExp* exp = node->Cast<NameExp>();
+	int r = fi->SlotOfLocVar(exp->Name);
+	if(r >= 0)
+	{
+		fi->EmitMove(a, r);
+	}
+	else
+	{
+		int idx = fi->IndexOfUpval(exp->Name);
+		if(idx >= 0)
+		{
+			fi->EmitGetUpval(a, idx);
+		}
+		else
+		{
+			ExpPtr tabExp = Exp::New<TableAccessExp>();
+			ExpPtr prefixExp = Exp::New<NameExp>();
+			ExpPtr keyExp = Exp::New<StringExp>();
+
+			prefixExp->Cast<NameExp>()->Line = 0;
+			prefixExp->Cast<NameExp>()->Name = "_ENV";
+
+			keyExp->Cast<StringExp>()->Line = 0;
+			keyExp->Cast<StringExp>()->Val = exp->Name;
+
+			tabExp->Cast<TableAccessExp>()->PrefixExp = prefixExp;
+			tabExp->Cast<TableAccessExp>()->KeyExp = keyExp;
+
+			CGTableAceessExp(fi, tabExp, a);
+		}
+	}
+}
+
+void FuncInfo::CGTableAceessExp(FuncInfoPtr fi, ExpPtr node, int a)
+{
+	TableAccessExp* exp = node->Cast<TableAccessExp>();
+	int b = fi->AllocReg();
+	CGExp(fi, exp->PrefixExp, b, 1);
+	int c = fi->AllocReg();
+	CGExp(fi, exp->KeyExp, c, 1);
+	fi->EmitGetTabUp(a, b, c);
+	fi->FreeRegs(2);
+}
+
+int FuncInfo::PrepFuncCall(FuncInfoPtr fi, FuncCallExp* node, int a)
+{
+	int nArgs = (int)node->Args.size();
+	bool lastArgIsVarargOrFuncCall = false;
+
+	CGExp(fi, node->PrefixExp, a, 1);
+	if(node->NameExp != nullptr)
+	{
+		StringExp* nameExp = node->NameExp->Cast<StringExp>();
+		int c = 0x100 + fi->IndexOfConstant(LuaValue(nameExp->Val));
+		int tmp = fi->AllocReg();
+		panic_cond(tmp == a + 1, "the register index of self parameter"
+			"is not equal to the register index of function + 1");
+		fi->EmitSelf(a, a, c);
+	}
+
+	for(int i = 0; i < nArgs; ++i)
+	{
+		int tmp = fi->AllocReg();
+		ExpPtr arg = node->Args[i];
+		if(i == nArgs - 1 && IsVarargOrFuncCall(arg))
+		{
+			lastArgIsVarargOrFuncCall = true;
+			CGExp(fi, arg, tmp, -1);
+		}
+		else
+		{
+			CGExp(fi, arg, tmp, 1);
+		}
+	}
+	fi->FreeRegs(nArgs);
+
+	if(node->NameExp != nullptr)
+	{
+		fi->FreeReg();
+		++nArgs;
+	}
+	if(lastArgIsVarargOrFuncCall)
+	{
+		nArgs = -1;
+	}
+	return nArgs;
+}
+
+void FuncInfo::CGFuncCallExp(FuncInfoPtr fi, ExpPtr node, int a, int n)
+{
+	int nArgs = PrepFuncCall(fi, node->Cast<FuncCallExp>(), a);
+	fi->EmitCall(a, nArgs, n);
 }
 
 void FuncInfo::EmitABC(int opcode, int a, int b, int c)
@@ -594,7 +1068,7 @@ void FuncInfo::EmitVararg(int a, int n)
 	EmitABC(OP_VARARG, a, n + 1, 0);
 }
 
-// r[a], r[a+1], ..., r[a+b-2] = vararg
+// r[a] = emitClosure(proto[bx])
 void FuncInfo::EmitClosure(int a, int bx)
 {
 	EmitABx(OP_CLOSURE, a, bx);

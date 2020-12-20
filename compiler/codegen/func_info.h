@@ -134,7 +134,17 @@ struct FuncInfo
 	void CGLocalVarDeclStat(FuncInfoPtr fi, StatPtr node);
 	void CGAssignStat(FuncInfoPtr fi, StatPtr node);
 
-	void CGExp(FuncInfoPtr fi, ExpPtr node, int a, int n) {}
+	void CGExp(FuncInfoPtr fi, ExpPtr node, int a, int n);
+	void CGVarargExp(FuncInfoPtr fi, ExpPtr node, int a, int n);
+	void CGFuncDefExp(FuncInfoPtr fi, ExpPtr node, int a);
+	void CGTableConstructorExp(FuncInfoPtr fi, ExpPtr node, int a);
+	void CGUnopExp(FuncInfoPtr fi, ExpPtr node, int a);
+	void CGBinopExp(FuncInfoPtr fi, ExpPtr node, int a);
+	void CGConcatExp(FuncInfoPtr fi, ExpPtr node, int a);
+	void CGNameExp(FuncInfoPtr fi, ExpPtr node, int a);
+	void CGTableAceessExp(FuncInfoPtr fi, ExpPtr node, int a);
+	int PrepFuncCall(FuncInfoPtr fi, FuncCallExp* node, int a);
+	void CGFuncCallExp(FuncInfoPtr fi, ExpPtr node, int a, int n);
 
 	void EmitABC(int opcode, int a, int b, int c);
 	void EmitABx(int opcode, int a, int bx);

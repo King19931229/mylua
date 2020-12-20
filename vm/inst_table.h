@@ -37,8 +37,6 @@ struct __table_insts__
 
 	static void setList(Instruction i, LuaVM* vm)
 	{
-		static const int LFIELDS_PER_FLUSH = 50;
-
 		auto abc = i.ABC();
 		int a = std::get<0>(abc) + 1;
 		int b = std::get<1>(abc);
