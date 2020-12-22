@@ -532,7 +532,7 @@ void CGForInStat(FuncInfoPtr fi, StatPtr node)
 	int rGenerator = fi->SlotOfLocVar("(for generator)");
 	fi->EmitTForCall(rGenerator, (int)stat->NameList.size());
 	// PC() + 1 + 1 + k = pcJmpToTFC + 1
-	fi->EmitTForCall(rGenerator + 2, pcJmpToTFC - fi->PC() - 1);
+	fi->EmitTForLoop(rGenerator + 2, pcJmpToTFC - fi->PC() - 1);
 
 	fi->ExitScope();
 }
