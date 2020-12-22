@@ -493,12 +493,13 @@ void CGForNumStat(FuncInfoPtr fi, StatPtr node)
 	StatPtr tempDecl = Stat::New<LocalVarDeclStat>();
 	tempDecl->Cast<LocalVarDeclStat>()->NameList = {"(for index)", "(for limit)", "(for step)"};
 	tempDecl->Cast<LocalVarDeclStat>()->ExpList = {stat->InitExp, stat->LimitExp, stat->StepExp};
-	
+	CGLocalVarDeclStat(fi, tempDecl);
+
 	fi->AddLocVar(stat->VarName);
 	int a = fi->usedRegs - 4;
 	int pcForPrep = fi->EmitForPrep(a, 0);
 	CGBlock(fi, stat->Block); fi->CloseOpenUpvals();
-	int pcForLoop = fi->EmitForLoop(0, 0);
+	int pcForLoop = fi->EmitForLoop(a, 0);
 
 	// pcForPrep + 1 + k = pcForLoop
 	fi->FixSbx(pcForPrep, pcForLoop - pcForPrep - 1);
@@ -516,6 +517,7 @@ void CGForInStat(FuncInfoPtr fi, StatPtr node)
 	StatPtr tempDecl = Stat::New<LocalVarDeclStat>();
 	tempDecl->Cast<LocalVarDeclStat>()->NameList = {"(for generator)", "(for state)", "(for control)"};
 	tempDecl->Cast<LocalVarDeclStat>()->ExpList = stat->ExpList;
+	CGLocalVarDeclStat(fi, tempDecl);
 
 	for(const String& name : stat->NameList)
 	{
@@ -577,8 +579,8 @@ void CGLocalVarDeclStat(FuncInfoPtr fi, StatPtr node)
 			{
 				multRet = true;
 				int n = nNames - nExps + 1;
-				fi->AllocRegs(n - 1);
 				CGExp(fi, exp, a, n);
+				fi->AllocRegs(n - 1);
 			}
 			else
 			{
@@ -660,8 +662,8 @@ void CGAssignStat(FuncInfoPtr fi, StatPtr node)
 			{
 				multRet = true;
 				int n = nVars - nExps + 1;
-				fi->AllocRegs(n - 1);
 				CGExp(fi, exp, a, n);
+				fi->AllocRegs(n - 1);
 			}
 			else
 			{
@@ -734,6 +736,8 @@ void CGExp(FuncInfoPtr fi, ExpPtr node, int a, int n)
 		CGExp(fi, node->Cast<ParensExp>()->Exp, a, 1);
 	else if(node->IsA<VarargExp>())
 		CGVarargExp(fi, node, a, n);
+	else if(node->IsA<FuncDefExp>())
+		CGFuncDefExp(fi, node, a);
 	else if(node->IsA<TableConstructorExp>())
 		CGTableConstructorExp(fi, node, a);
 	else if(node->IsA<UnopExp>())
@@ -748,6 +752,8 @@ void CGExp(FuncInfoPtr fi, ExpPtr node, int a, int n)
 		CGTableAceessExp(fi, node, a);
 	else if(node->IsA<FuncCallExp>())
 		CGFuncCallExp(fi, node, a, n);
+	else
+		panic("should never reach");
 }
 
 // n pass >=0 means read n parameters, n pass -1 means read all parameters
@@ -965,13 +971,15 @@ int PrepFuncCall(FuncInfoPtr fi, FuncCallExp* node, int a)
 	bool lastArgIsVarargOrFuncCall = false;
 
 	CGExp(fi, node->PrefixExp, a, 1);
+
+	panic_cond(fi->usedRegs == a + 1, "the register index of self parameter"
+			"is not equal to the register index of function + 1");
+
 	if(node->NameExp != nullptr)
 	{
 		StringExp* nameExp = node->NameExp->Cast<StringExp>();
 		int c = 0x100 + fi->IndexOfConstant(LuaValue(nameExp->Val));
-		int tmp = fi->AllocReg();
-		panic_cond(tmp == a + 1, "the register index of self parameter"
-			"is not equal to the register index of function + 1");
+		fi->AllocReg();
 		fi->EmitSelf(a, a, c);
 	}
 
@@ -1013,7 +1021,7 @@ void FuncInfo::EmitABC(int opcode, int a, int b, int c)
 {
 	UInt32 i = b << 23 | c << 14 | a << 6 | opcode;
 	insts.emplace_back(i);
-#ifdef DEBUG_PRINT_ENABLE
+#if DEBUG_PRINT_ENABLE
 	Instruction inst = Instruction(i);
 	DEBUG_PRINT("%s", inst.OpName().c_str());
 	Prototype::PrintOperands(inst);
@@ -1025,7 +1033,7 @@ void FuncInfo::EmitABx(int opcode, int a, int bx)
 {
 	UInt32 i = bx << 14 | a << 6 | opcode;
 	insts.emplace_back(i);
-#ifdef DEBUG_PRINT_ENABLE
+#if DEBUG_PRINT_ENABLE
 	Instruction inst = Instruction(i);
 	DEBUG_PRINT("%s", inst.OpName().c_str());
 	Prototype::PrintOperands(inst);
@@ -1037,7 +1045,7 @@ void FuncInfo::EmitAsBx(int opcode, int a, int b)
 {
 	UInt32 i = (b + MAXARG_sBX) << 14 | a << 6 | opcode;
 	insts.emplace_back(i);
-#ifdef DEBUG_PRINT_ENABLE
+#if DEBUG_PRINT_ENABLE
 	Instruction inst = Instruction(i);
 	DEBUG_PRINT("%s", inst.OpName().c_str());
 	Prototype::PrintOperands(inst);
@@ -1228,12 +1236,16 @@ void FuncInfo::EmitUnaryOp(int op, int a, int b)
 	{
 	case TOKEN_OP_NOT:
 		EmitABC(OP_NOT, a, b, 0);
+		break;
 	case TOKEN_OP_BNOT:
 		EmitABC(OP_BNOT, a, b, 0);
+		break;
 	case TOKEN_OP_LEN:
 		EmitABC(OP_LEN, a, b, 0);
+		break;
 	case TOKEN_OP_UNM:
 		EmitABC(OP_UNM, a, b, 0);
+		break;
 	}
 }
 
@@ -1253,16 +1265,22 @@ void FuncInfo::EmitBinaryOp(int op, int a, int b, int c)
 		{
 			case TOKEN_OP_EQ:
 				EmitABC(OP_EQ, 1, b, c);
+				break;
 			case TOKEN_OP_NE:
 				EmitABC(OP_EQ, 0, b, c);
+				break;
 			case TOKEN_OP_LT:
 				EmitABC(OP_LT, 1, b, c);
+				break;
 			case TOKEN_OP_GT:
 				EmitABC(OP_LT, 1, c, b);
+				break;
 			case TOKEN_OP_LE:
 				EmitABC(OP_LE, 1, b, c);
+				break;
 			case TOKEN_OP_GE:
 				EmitABC(OP_LE, 1, c, b);
+				break;
 		}
 		// Skip the next instruction(r[a] = 0). r[a] = 1
 		EmitJmp(0, 1);

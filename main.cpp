@@ -206,7 +206,6 @@ int main()
 		state->Register("error", error);
 		state->Register("pcall", pcall);
 		state->Load(buffer, "chunk", "b");
-		PrintStack(*state);
 		state->Call(0, 0);
 	}
 #endif

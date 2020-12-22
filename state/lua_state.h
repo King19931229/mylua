@@ -555,6 +555,10 @@ struct LuaState
 			DEBUG_PRINT("%s", inst.OpName().c_str());
 			Prototype::PrintOperands(inst);
 			puts("");
+			// if(inst.Opcode() == OP_VARARG)
+			// {
+			// 	printf("OP_VARARG");
+			// }
 #endif
 			inst.Execute(this);
 #if DEBUG_PRINT_ENABLE
