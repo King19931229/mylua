@@ -33,8 +33,6 @@ enum CompareOp
 
 void PrintStack(LuaState& state);
 
-using FuncReg = std::unordered_map<String, CFunction>;
-
 struct LuaState
 {
 	LuaStackPtr stack;
@@ -61,11 +59,16 @@ struct LuaState
 	bool IsNil(int idx) const;
 	bool IsNoneOrNil(int idx) const;
 	bool IsBoolean(int idx) const;
+	bool IsInteger(int idx) const;
+	bool IsNumber(int idx) const;
 	bool IsString(int idx) const;
+	bool IsTable(int idx) const;
+	bool IsThread(int idx) const;
+	bool IsFunction(int idx) const;
+	void* ToPointer(int idx) const;
 	bool ToBoolean(int idx) const;
 	std::tuple<Float64, bool> ToNumberX(int idx) const;
 	Float64 ToNumber(int idx) const;
-	bool IsNumber(int idx) const;
 	std::tuple<Int64, bool> ToIntegerX(int idx) const;
 	Int64 ToInteger(int idx) const;
 	std::tuple<String, bool> ToStringX(int idx);
@@ -76,6 +79,7 @@ struct LuaState
 	void Len(int idx);
 	void RawLen(int idx);
 	void Concat(int n);
+	void PushFString(const char* fmt, ...);
 	/*
 	interfaces for table
 	*/
@@ -86,6 +90,7 @@ struct LuaState
 	LuaType GetField(int idx, const String& k);
 	LuaType RawGetField(int idx, const String& k);
 	LuaType GetI(int idx, Int64 k);
+	LuaType RawGet(int idx);
 	LuaType RawGetI(int idx, Int64 k);
 	void _SetTable(const LuaValue& t, const LuaValue& k, const LuaValue& v, bool raw);
 	void SetTable(int idx);
@@ -100,7 +105,8 @@ struct LuaState
 	void CallLuaClosure(int nArgs, int nResults, ClosurePtr c);
 	void CallCClosure(int nArgs, int nResults, ClosurePtr c);
 	void Call(int nArgs, int nResults);
-	void PushCFunction(CFunction c, int n);
+	void PushCClosure(CFunction c, int n);
+	void PushCFunction(CFunction c);
 	bool IsCFunction(int idx);
 	CFunction ToCFunction(int idx);
 	void PushGlobalTable();
@@ -127,18 +133,18 @@ struct LuaState
 	/*
 	interfaces for auxlib
 	*/
-	int Error2(const String& fmt, ...);
+	int Error2(const char* fmt, ...);
 	int ArgError(int arg, const String& extraMsg);
-	void CheckState2(int sz, const String& msg);
+	void CheckStack2(int sz, const String& msg);
 	void ArgCheck(bool cond, int arg, const String& extraMsg);
 	void CheckAny(int arg);
 	void CheckType(int arg, LuaType t);
 	Int64 CheckInteger(int arg);
 	Float64 CheckNumber(int arg);
-	const String CheckString(int arg);
+	String CheckString(int arg);
 	Int64 OptInteger(int arg, Int64 d);
 	Float64 OptNumber(int arg, Float64 d);
-	const String OptString(int arg, const String& d);
+	String OptString(int arg, const String& d);
 	/* Load functions */
 	bool DoFile(const String& filename);
 	bool DoString(const String& str);
@@ -146,17 +152,21 @@ struct LuaState
 	int LoadFileX(const String& filename, const String& mode);
 	int LoadString(const String& s);
 	/* Other functions */
-	const String TypeName2(int idx);
-	const String ToString2(int idx);
+	String TypeName2(int idx);
+	String ToString2(int idx);
 	Int64 Len2(int idx);
 	bool GetSubTable(int idx, const String& fname);
 	LuaType GetMetafield(int obj, const String& e);
 	bool CallMeta(int obj, const String& e);
 	void OpenLibs();
 	void RequireF(const String& modname, CFunction openf, bool glb);
-	void NewLib(const FuncReg& l);
-	void NewLibTable(const FuncReg& l);
-	void SetFuncs(const FuncReg& l, int nup);
+	void NewLib(const FuncReg* l);
+	void NewLibTable(const FuncReg* l);
+	void SetFuncs(const FuncReg* l, int nup);
+	/* Error functions*/
+	void IntError(int arg);
+	void TagError(int arg, LuaType tag);
+	int TypeError(int arg, const String& tname);
 };
 
 inline LuaStatePtr NewLuaState()

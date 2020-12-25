@@ -283,11 +283,34 @@ LuaType LuaState::Type(int idx) const
 bool LuaState::IsNone(int idx) const { return Type(idx) == LUA_TNONE; }
 bool LuaState::IsNil(int idx) const { return Type(idx) == LUA_TNIL; }
 bool LuaState::IsNoneOrNil(int idx) const { return Type(idx) <= LUA_TNIL; }
+bool LuaState::IsInteger(int idx) const
+{
+	LuaValue val = stack->Get(idx);
+	if(val.tag == LUA_TNUMBER && !val.isfloat)
+		return true;
+	return false;
+}
+bool LuaState::IsNumber(int idx) const
+{
+	auto pair = ToNumberX(idx);
+	return std::get<1>(pair);
+}
 bool LuaState::IsBoolean(int idx) const { return Type(idx) == LUA_TBOOLEAN; }
+bool LuaState::IsTable(int idx) const { return Type(idx) == LUA_TTABLE; }
+bool LuaState::IsThread(int idx) const { return Type(idx) == LUA_TTHREAD; }
+bool LuaState::IsFunction(int idx) const { return Type(idx) == LUA_TFUNCTION; }
+
 bool LuaState::IsString(int idx) const
 {
 	LuaType t = Type(idx);
 	return t == LUA_TSTRING || t == LUA_TNUMBER;
+}
+
+void* LuaState::ToPointer(int idx) const
+{
+	if(idx < (int)stack->slots.size())
+		return stack->slots[idx].get();
+	return NULL;
 }
 
 bool LuaState::ToBoolean(int idx) const
@@ -306,12 +329,6 @@ Float64 LuaState::ToNumber(int idx) const
 {
 	auto pair = ToNumberX(idx);
 	return std::get<0>(pair);
-}
-
-bool LuaState::IsNumber(int idx) const
-{
-	auto pair = ToNumberX(idx);
-	return std::get<1>(pair);
 }
 
 std::tuple<Int64, bool> LuaState::ToIntegerX(int idx) const
@@ -465,6 +482,15 @@ void LuaState::Concat(int n)
 	// n == 1, do nothing
 }
 
+void LuaState::PushFString(const char* fmt, ...)
+{
+	va_list list;
+	va_start(list, fmt);
+	String msg = Format::FormatString(fmt, list);
+	va_end(list);
+	stack->Push(LuaValue(msg));
+}
+
 /*
 interfaces for table
 */
@@ -544,6 +570,13 @@ LuaType LuaState::GetI(int idx, Int64 k)
 {
 	LuaValue t = stack->Get(idx);
 	return _GetTable(t, LuaValue(k), false);
+}
+
+LuaType LuaState::RawGet(int idx)
+{
+	LuaValue t = stack->Get(idx);
+	LuaValue k = *stack->Pop();
+	return _GetTable(t, k, true);
 }
 
 LuaType LuaState::RawGetI(int idx, Int64 k)
@@ -801,7 +834,7 @@ void LuaState::Call(int nArgs, int nResults)
 	}
 }
 
-void LuaState::PushCFunction(CFunction c, int n)
+void LuaState::PushCClosure(CFunction c, int n)
 {
 	ClosurePtr closure = NewCClosure(c, n);
 	for(int i = n; i > 0; --i)
@@ -810,6 +843,11 @@ void LuaState::PushCFunction(CFunction c, int n)
 		closure->upvals[i - 1] = UpValue(val);
 	}
 	stack->Push(LuaValue(closure));
+}
+
+void LuaState::PushCFunction(CFunction c)
+{
+	PushCClosure(c, 0);
 }
 
 bool LuaState::IsCFunction(int idx)

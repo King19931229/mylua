@@ -46,6 +46,7 @@ LuaStack::LuaStack()
 	top = pc = 0;
 }
 
+// Make sure the stack has room for n elements
 void LuaStack::Check(int n)
 {
 	int free = (int)slots.size() - top;

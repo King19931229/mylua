@@ -70,7 +70,7 @@ int next(LuaState* ls)
 
 int pairs(LuaState* ls)
 {
-	ls->PushCFunction(next, 0);
+	ls->PushCFunction(next);
 	ls->PushValue(1);
 	ls->PushNil();
 	return 3;
@@ -92,7 +92,7 @@ int _ipairsAux(LuaState* ls)
 
 int ipairs(LuaState* ls)
 {
-	ls->PushCFunction(_ipairsAux, 0);
+	ls->PushCFunction(_ipairsAux);
 	ls->PushValue(1);
 	ls->PushNil();
 	return 3;
