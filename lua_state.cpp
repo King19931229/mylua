@@ -891,7 +891,7 @@ void LuaState::SetGlobal(const String& name)
 
 void LuaState::Register(const String& name, CFunction f)
 {
-	PushCFunction(f, 0);
+	PushCFunction(f);
 	SetGlobal(name);
 }
 

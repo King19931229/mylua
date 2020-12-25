@@ -2,6 +2,7 @@
 #include "lua_stack.h"
 #include "api_arith.h"
 #include "api_compare.h"
+#include "closure.h"
 #include "binchunk/binary_chunk.h"
 #include "binchunk/reader.h"
 #include "compiler/compiler.h"

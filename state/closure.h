@@ -3,16 +3,18 @@
 
 typedef int(*CFunction)(LuaState* state);
 
-struct CFunctionMap
+struct FuncReg
 {
 	const char* name;
 	CFunction func;
-	CFunctionMap()
+
+	FuncReg()
 	{
 		name = nullptr;
 		func = nullptr;
 	}
-	CFunctionMap(const char* _name, CFunction _func)
+
+	FuncReg(const char* _name, CFunction _func)
 	{
 		name = _name;
 		func = _func;
