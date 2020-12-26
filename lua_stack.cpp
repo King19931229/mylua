@@ -11,12 +11,28 @@ const LuaValuePtr LuaValue::NilPtr(NewLuaValue(LuaValue(LUA_TNIL)));
 
 const LuaTablePtr LuaTable::NilPtr(NewLuaTable(0, 0));
 
+// TODO
 size_t LuaValue::Hash() const
 {
 	size_t hash = 0;
 	HashCombine(hash, tag);
-	HashCombine(hash, integer);
-	HashCombine(hash, isfloat);
+	// Be careful, hash the value by the tag
+	if(tag == LUA_TBOOLEAN)
+	{
+		HashCombine(hash, boolean);
+	}
+	else if(tag == LUA_TNUMBER)
+	{
+		HashCombine(hash, isfloat);
+		if(isfloat)
+		{
+			HashCombine(hash, number);
+		}
+		else
+		{
+			HashCombine(hash, integer);
+		}
+	}
 	HashCombine(hash, _BKDR(str.c_str(), str.length()));
 	HashCombine(hash, table ? (size_t)table.get() : 0);
 	// Don't be stupid to hash the closure pointer
