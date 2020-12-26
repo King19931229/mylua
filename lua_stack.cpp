@@ -30,7 +30,9 @@ size_t LuaValue::Hash() const
 		}
 		else
 		{
-			HashCombine(hash, integer);
+			// Very important here, size_t may be 32bit
+			HashCombine(hash, (size_t)(integer & 0xFFFFFFFF));
+			HashCombine(hash, (size_t)((integer >> 32) & 0xFFFFFFFF));
 		}
 	}
 	HashCombine(hash, _BKDR(str.c_str(), str.length()));
