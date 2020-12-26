@@ -291,7 +291,7 @@ void DumpStat(StatPtr stat, int indent, FILE* fp)
 	{
 		DumpWithIndent("AssignStat:", indent + 1, fp);
 		AssignStat* localStat = stat->Cast<AssignStat>();
-		DumpWithIndent(Format::FormatString("LineOfDo %d", localStat->Line), indent + 1, fp);
+		DumpWithIndent(Format::FormatString("Line %d", localStat->Line), indent + 1, fp);
 		DumpWithIndent(Format::FormatString("VarList"), indent + 1, fp);
 		for(ExpPtr part : localStat->VarList)
 		{

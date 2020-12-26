@@ -78,7 +78,7 @@ struct LuaState
 	bool Compare(int idx1, int idx2, CompareOp op);
 	bool RawEqual(int idx1, int idx2);
 	void Len(int idx);
-	void RawLen(int idx);
+	int RawLen(int idx);
 	void Concat(int n);
 	void PushFString(const char* fmt, ...);
 	String TypeName(LuaType tp);
@@ -148,6 +148,7 @@ struct LuaState
 	Int64 OptInteger(int arg, Int64 d);
 	Float64 OptNumber(int arg, Float64 d);
 	String OptString(int arg, const String& d);
+	bool StringToNumber(const String& s);
 	/* Load functions */
 	bool DoFile(const String& filename);
 	bool DoString(const String& str);

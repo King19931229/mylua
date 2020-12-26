@@ -101,6 +101,23 @@ String LuaState::OptString(int arg, const String& d)
 	return CheckString(arg);
 }
 
+bool LuaState::StringToNumber(const String& s)
+{
+	auto intRes = ParseInteger(s);
+	if(std::get<1>(intRes))
+	{
+		PushInteger(std::get<0>(intRes));
+		return true;
+	}
+	auto floatRes = ParseFloat(s);
+	if(std::get<1>(intRes))
+	{
+		PushNumber(std::get<0>(floatRes));
+		return true;
+	}
+	return false;
+}
+
 bool LuaState::DoFile(const String& filename)
 {
 	return LoadFile(filename) == LUA_OK && PCall(0, LUA_MULTRET, 0) == LUA_OK;

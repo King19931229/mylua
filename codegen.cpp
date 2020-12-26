@@ -615,9 +615,9 @@ void CGAssignStat(FuncInfoPtr fi, StatPtr node)
 	std::vector<int> kRegs; kRegs.resize(nVars);
 	std::vector<int> vRegs; vRegs.resize(nVars);
 
-	for(int i = 0; i < nExps; ++i)
+	for(int i = 0; i < nVars; ++i)
 	{
-		ExpPtr exp = stat->ExpList[i];
+		ExpPtr exp = stat->VarList[i];
 		if(exp->IsA<TableAccessExp>())
 		{
 			TableAccessExp* taExp = exp->Cast<TableAccessExp>();
@@ -711,6 +711,10 @@ void CGAssignStat(FuncInfoPtr fi, StatPtr node)
 					fi->EmitSetTabUp(a, b, vRegs[i]);
 				}
 			}
+		}
+		else
+		{
+			fi->EmitSetTable(tRegs[i], kRegs[i], vRegs[i]);
 		}
 	}
 

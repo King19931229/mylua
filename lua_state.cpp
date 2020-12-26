@@ -438,13 +438,15 @@ void LuaState::Len(int idx)
 	}
 }
 
-void LuaState::RawLen(int idx)
+int LuaState::RawLen(int idx)
 {
 	LuaValue val = stack->Get(idx);
 	if(val.IsString())
-		stack->Push(LuaValue((Int64)val.str.length()));
+		return (int)val.str.length();
+	else if(val.IsTable())
+		return (int)val.table->Len();
 	else
-		panic("length error!");
+		return 0;
 }
 
 void LuaState::Concat(int n)

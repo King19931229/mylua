@@ -214,17 +214,34 @@ int BaseGetMetatable(LuaState* ls)
 
 int BaseSetMetatable(LuaState* ls)
 {
-	return 0;
+	LuaType t = ls->Type(2);
+	ls->CheckType(1, LUA_TTABLE);
+	ls->ArgCheck(t == LUA_TNIL || t == LUA_TTABLE, 2,
+		"nil or table expected");
+	if(ls->GetMetafield(1, "__metatable") != LUA_TNIL)
+	{
+		ls->Error2("cannot change a protected metatable");
+	}
+	ls->SetTop(2);
+	ls->SetMetatable(1);
+	return 1;
 }
 
 int BaseRawEqual(LuaState* ls)
 {
-	return 0;
+	ls->CheckAny(1);
+	ls->CheckAny(2);
+	ls->PushBoolean(ls->RawEqual(1, 2));
+	return 1;
 }
 
 int BaseRawLen(LuaState* ls)
 {
-	return 0;
+	LuaType t = ls->Type(1);
+	ls->ArgCheck(t == LUA_TTABLE || t == LUA_TSTRING, 1,
+		"table or string expected");
+	ls->PushInteger(Int64(ls->RawLen(1)));
+	return 1;
 }
 
 int BaseRawGet(LuaState* ls)
@@ -263,5 +280,46 @@ int BaseToString(LuaState* ls)
 
 int BaseToNumber(LuaState* ls)
 {
-	return 0;
+	/* standard conversion? */
+	if(ls->IsNoneOrNil(2))
+	{
+		ls->CheckAny(1);
+		/* already a number? */
+		if(ls->Type(1) == LUA_TNUMBER)
+		{
+			/* yes; return it */
+			ls->SetTop(1);
+			return 1;
+		}
+		else
+		{
+			auto pair = ls->ToStringX(1);
+			if(std::get<1>(pair))
+			{
+				const String& s = std::get<0>(pair);
+				if(ls->StringToNumber(s))
+				{
+					/* successful conversion to number */
+					return 1;
+				}/* else not a number */
+			}
+		}
+	}
+	else
+	{
+		/* no numbers as strings */
+		ls->CheckType(1, LUA_TSTRING);
+		// todo TrimSpace
+		String s = ls->ToString(1);
+		int base = (int)ls->CheckInteger(2);
+		ls->ArgCheck(2 <= base && base <= 36, 2, "base out of range");
+		// todo turn s into base number strconv.ParseInt(s, base)
+		if(false)
+		{
+			ls->PushInteger(0);
+			return 1;
+		}/* else not a number */
+	}/* else not a number */
+	ls->PushNil();
+	return 1;
 }

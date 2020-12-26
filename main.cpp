@@ -56,7 +56,7 @@ void testParser(const String& chunk, const String& chunkName)
 int main()
 {
 #if 0
-	FILE* f = fopen("C:/LearnCompiler/lua-5.3.6/src/hello.lua", "rb");
+	FILE* f = fopen("hello.lua", "rb");
 	if (f)
 	{
 		fseek(f, 0, SEEK_END);
@@ -82,7 +82,7 @@ int main()
 	}
 #else
 	//FILE* f = fopen("C:/LearnCompiler/lua-5.3.6/src/hello.luac", "rb");
-	FILE* f = fopen("C:/LearnCompiler/lua-5.3.6/src/hello.lua", "rb");
+	FILE* f = fopen("hello.lua", "rb");
 	if (f)
 	{
 		fseek(f, 0, SEEK_END);
