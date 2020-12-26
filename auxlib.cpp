@@ -363,6 +363,7 @@ void LuaState::SetFuncs(const FuncReg* l, int nup)
 	/* fill the table with given functions */
 	while(lib && lib->name)
 	{
+		DEBUG_PRINT("Register: %s\t0x%x\n", lib->name, (size_t)lib->func);
 		/* copy upvalues to the top */
 		for(int i = 0; i < nup; ++i)
 			PushValue(-nup);
@@ -377,4 +378,41 @@ void LuaState::SetFuncs(const FuncReg* l, int nup)
 	}
 	/* remove upvalues */	
 	Pop(nup);
+}
+
+void LuaState::IntError(int arg)
+{
+	if(IsNumber(arg))
+		ArgError(arg, "number has no integer representation");
+	else
+		TagError(arg, LUA_TNUMBER);
+}
+
+void LuaState::TagError(int arg, LuaType tag)
+{
+	TypeError(arg, TypeName(tag));
+}
+
+int LuaState::TypeError(int arg, const String& tname)
+{
+	/* name for the type of the actual argument */
+	String typeArg;
+	if(GetMetafield(arg, "__name") == LUA_TSTRING)
+	{
+		/* use the given type name */
+		typeArg = ToString(-1);
+	}
+	else if(Type(arg) == LUA_TLIGHTUSERDATA)
+	{
+		/* special name for messages */
+		typeArg = "light userdata";
+	}
+	else
+	{
+		/* standard name */
+		typeArg = TypeName2(arg);
+	}
+	String msg = tname + " expected, got " + typeArg;
+	PushString(msg);
+	return ArgError(arg, msg);
 }

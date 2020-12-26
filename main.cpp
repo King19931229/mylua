@@ -26,7 +26,7 @@ int print(LuaState* ls)
 		}
 		else
 		{
-			printf("%s", TypeName(ls->Type(i)).c_str());
+			printf("%s", ls->TypeName(ls->Type(i)).c_str());
 		}
 		if(i < nArgs)
 		{
@@ -205,6 +205,7 @@ int main()
 		state->Register("ipairs", ipairs);
 		state->Register("error", error);
 		state->Register("pcall", pcall);
+		// state->OpenLibs();
 		state->Load(buffer, "chunk", "b");
 		state->Call(0, 0);
 	}

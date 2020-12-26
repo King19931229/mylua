@@ -81,6 +81,7 @@ struct LuaState
 	void RawLen(int idx);
 	void Concat(int n);
 	void PushFString(const char* fmt, ...);
+	String TypeName(LuaType tp);
 	/*
 	interfaces for table
 	*/
@@ -97,6 +98,7 @@ struct LuaState
 	void SetTable(int idx);
 	void SetField(int idx, const String& k);
 	void SetI(int idx, Int64 i);
+	void RawSet(int idx);
 	void RawSetI(int idx, Int64 i);
 	void PushLuaStack(LuaStackPtr s);
 	void PopLuaStack();

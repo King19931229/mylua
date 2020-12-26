@@ -491,6 +491,25 @@ void LuaState::PushFString(const char* fmt, ...)
 	stack->Push(LuaValue(msg));
 }
 
+String LuaState::TypeName(LuaType tp)
+{
+	switch (tp)
+	{
+		case LUA_TNONE: return "no value";
+		case LUA_TNIL: return "nil";
+		case LUA_TBOOLEAN: return "boolean";
+		case LUA_TNUMBER: return "number";
+		case LUA_TSTRING: return "string";
+		case LUA_TTABLE: return "table";
+		case LUA_TFUNCTION: return "function";	
+		case LUA_TTHREAD: return "thread";
+		case LUA_TLIGHTUSERDATA:
+		case LUA_TUSERDATA:
+		default: return "userdata";
+	}
+}
+
+
 /*
 interfaces for table
 */
@@ -646,6 +665,14 @@ void LuaState::SetI(int idx, Int64 i)
 	LuaValue t = stack->Get(idx);
 	LuaValue v = *stack->Pop();
 	_SetTable(t, LuaValue(i), LuaValue(v), false);
+}
+
+void LuaState::RawSet(int idx)
+{
+	LuaValue t = stack->Get(idx);
+	LuaValue v = *stack->Pop();
+	LuaValue k = *stack->Pop();
+	_SetTable(t, LuaValue(k), LuaValue(v), true);
 }
 
 void LuaState::RawSetI(int idx, Int64 i)
