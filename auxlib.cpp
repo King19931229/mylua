@@ -1,5 +1,6 @@
 #include "state/lua_state.h"
 #include "stdlib/lib_basic.h"
+#include "stdlib/lib_package.h"
 
 int LuaState::Error2(const char* fmt, ...)
 {
@@ -314,6 +315,7 @@ void LuaState::OpenLibs()
 {
 	FuncReg libs[] = {
 		{"_G", OpenBaseLib},
+		{"package", OpenPackageLib},
 		{nullptr, nullptr}
 	};
 
@@ -328,7 +330,7 @@ void LuaState::OpenLibs()
 
 void LuaState::RequireF(const String& modname, CFunction openf, bool glb)
 {
-	GetSubTable(LUA_REGISTRYINDEX, "_LOADED");
+	GetSubTable(LUA_REGISTRYINDEX, LUA_LOADED_TABLE);
 	/* LOADED[modname] */
 	GetField(-1, modname);
 	/* package not already loaded? */

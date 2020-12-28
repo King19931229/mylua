@@ -1,4 +1,30 @@
 #include "stdlib/lib_basic.h"
+#include "stdlib/lib_package.h"
+
+#ifdef _WIN32
+#include <io.h>
+#include <direct.h>
+#include <windows.h>
+#ifdef _MSC_VER
+#pragma warning (disable:4996)
+#endif
+#else
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#endif
+
+#ifdef _WIN32
+#define ACCESS(path, mode) _access(path, mode)
+#define MKDIR(path) _mkdir(path)
+#define RMDIR(path) _rmdir(path)
+#else
+#define ACCESS(path, mode) access(path, mode)
+#define MKDIR(path) mkdir(path, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH)
+#define RMDIR(path) rmdir(path)
+#endif
+
+// Base Library
 
 int OpenBaseLib(LuaState* ls)
 {
@@ -322,4 +348,125 @@ int BaseToNumber(LuaState* ls)
 	}/* else not a number */
 	ls->PushNil();
 	return 1;
+}
+
+// Package Library
+
+int OpenPackageLib(LuaState* ls)
+{
+	/* create 'package' table */
+	ls->NewLib(PkgFuncs);
+	CreateSearchersTable(ls);
+	/* set paths */
+	ls->PushString("./?.lua;./?/init.lua");
+	ls->SetField(-2, "path");
+	/* store config information */
+	ls->PushString(String(LUA_DIRSEP) + "\n" + LUA_PATH_SEP + "\n"
+		+ LUA_PATH_MARK + "\n" + LUA_EXEC_DIR + "\n" + LUA_IGMARK + "\n");
+	ls->SetField(-2, "config");
+	/* set field 'loaded' */
+	ls->GetSubTable(LUA_REGISTRYINDEX, LUA_LOADED_TABLE);
+	ls->SetField(2, "loaded");
+	/* set field 'preload' */
+	ls->GetSubTable(LUA_REGISTRYINDEX, LUA_PRELOAD_TABLE);
+	ls->SetField(2, "preload");
+	ls->PushGlobalTable();
+	/* set 'package' as upvalue for next lib*/
+	ls->PushValue(-2);
+	/* open lib into global table */
+	ls->SetFuncs(LibFuncs, 1);
+	/* pop global table */
+	ls->Pop(1);
+	/* return 'package' table */
+	return 1;
+}
+
+void CreateSearchersTable(LuaState* ls)
+{
+	static constexpr CFunction searchers[]
+	{
+		PreloadSearcher,
+		LuaSearcher
+	};
+	static constexpr int searchersLen = sizeof(searchers) / sizeof(searchers[0]);
+	/* create 'searchers' table */
+	ls->CreateTable(searchersLen, 0);
+	/* fill it with predefined searchers */
+	for(int idx = 0; idx < searchersLen; ++idx)
+	{
+		/* set 'package' as upvalue for all searchers */
+		ls->PushValue(-2);
+		ls->PushCClosure(searchers[idx], 1);
+		/* searchers[idx + 1] = closure */
+		ls->RawSetI(-2, Int64(idx + 1));
+	}
+	/* put it in field 'searchers' */
+	/* package[searchers] = searchers */
+	ls->SetField(-2, "searchers");
+}
+
+int PreloadSearcher(LuaState* ls)
+{
+	const String& name = ls->CheckString(1);
+	ls->GetField(LUA_REGISTRYINDEX, LUA_PRELOAD_TABLE);
+	if(ls->GetField(-1, name) == LUA_TNIL)
+	{
+		/* not found */
+		ls->PushString(Format::FormatString("\n\tno field package.preload[\"%s\"]", name.c_str()));
+	}
+	return 1;
+}
+
+int LuaSearcher(LuaState* ls)
+{
+	const String& name = ls->CheckString(1);
+	/* see CreateSearchersTable, package table is the upvalue. */
+	ls->GetField(LuaUpvalueIndex(1), "path");
+	auto pathRes = ls->ToStringX(-1);
+	if(!std::get<1>(pathRes))
+	{
+		ls->Error2("'package.path' must be a string");
+	}
+	const String& path = std::get<0>(pathRes);
+	auto searchRes = _SearchPath(name, path, ".", LUA_DIRSEP);
+	const String& filename = std::get<0>(searchRes);
+	const String& errMsg = std::get<1>(searchRes);
+	if(errMsg != "")
+	{
+		ls->PushString(errMsg);
+		return 1;
+	}
+	/* module loaded successfully? */
+	if(ls->LoadFile(filename) == LUA_OK)
+	{
+		/* will be 2nd argument to module */
+		ls->PushString(filename);
+		return 2;
+	}
+	else
+	{
+		return ls->Error2("error loading module '%s' from file '%s':\n\t%s",
+			ls->CheckString(1).c_str(), filename.c_str(), ls->CheckString(-1).c_str());
+	}
+}
+
+std::tuple<String, String> _SearchPath(const String& _name, const String& path, const String& sep, const String& dirsep)
+{
+	String name = _name;
+	if(sep != "")
+	{
+		name = StringUtil::Replace(name, sep, dirsep);
+	}
+	String errMsg;
+	StringArray splitRes = StringUtil::Split(path, LUA_PATH_SEP);
+	for(const String& res : splitRes)
+	{
+		String filename = StringUtil::Replace(res, LUA_PATH_MARK, name);
+		if(!ACCESS(filename.c_str(), W_OK))
+		{
+			return std::make_pair(filename, "");
+		}
+		errMsg += Format::FormatString("\n\t no file '%s'", filename.c_str());
+	}
+	return std::make_pair("", errMsg);
 }

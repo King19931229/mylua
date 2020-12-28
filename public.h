@@ -3,6 +3,7 @@
 #include <cstring>
 #include <vector>
 #include <memory>
+#include <algorithm>
 #include <stdarg.h>
 
 using Byte = unsigned char;
@@ -133,6 +134,116 @@ struct Format
 	static inline String FromFloat64(Float64 d) { return std::to_string(d); }
 	static inline String FromInt64(Int64 i) { return std::to_string(i); }
 	static inline String FromString(const String& s) { return s; };
+};
+
+struct StringUtil
+{
+	static String Replace(const String& input, const String& replacee, const String& replacer)
+	{
+		String result = input;
+		String::size_type pos = result.find(replacee, 0);
+		while(pos != String::npos)
+		{
+			result.replace(pos, replacee.length(), replacer);
+		}
+		return result;
+	}
+
+	static StringArray Split(const String& input, const String& splitChars)
+	{
+		StringArray splitResult;
+
+		if (!input.empty())
+		{
+			size_t lastPos = 0;
+			size_t curPos = 0;
+			while (curPos < input.length())
+			{
+				lastPos = curPos;
+				curPos = input.find_first_of(splitChars, lastPos);
+				if (curPos != std::string::npos)
+				{
+					splitResult.push_back(input.substr(lastPos, curPos - lastPos));
+					++curPos;
+					if (curPos == input.length())
+					{
+						splitResult.push_back("");
+						break;
+					}
+				}
+				else
+				{
+					splitResult.push_back(input.substr(lastPos));
+					break;
+				}
+			}
+		}
+
+		return splitResult;
+	}
+
+	static String Strip(const String& src, const String& stripChars, bool left, bool right)
+	{
+		String result = src;
+		if(!src.empty())
+		{
+			String::size_type startPos = 0;
+			String::size_type endPos = src.length() - 1;
+
+			if(left)
+			{
+				startPos = src.find_first_not_of(stripChars);
+			}
+			if(right)
+			{
+				endPos = src.find_last_not_of(stripChars);
+			}
+			if(startPos != std::string::npos)
+			{
+				if(endPos != std::string::npos)
+				{
+					result = src.substr(startPos, endPos - startPos + 1);
+				}
+				else
+				{
+					result = src.substr(startPos);
+				}
+			}
+			else
+			{
+				result = "";
+			}
+		}
+		return result;
+	}
+
+	static bool StartsWith(const String& src, const String& chars)
+	{
+		if(src.length() >= chars.length() && src.substr(0, chars.length()) == chars)
+			return true;
+		return false;
+	}
+
+	static bool EndsWith(const String& src, const String& chars)
+	{
+		if(src.length() >= chars.length() && src.substr(src.length() - chars.length()) == chars)
+			return true;
+		return false;
+	}
+
+	static bool Upper(const String& src, String& dest)
+	{
+		dest = src;
+		std::transform(dest.begin(), dest.end(), dest.begin(), toupper);
+		return true;
+	}
+
+	bool Lower(const String& src, String& dest)
+	{
+		dest = src;
+		std::transform(dest.begin(), dest.end(), dest.begin(), tolower);
+		return true;
+	}
 };
 
 // https://stackoverflow.com/questions/2590677/how-do-i-combine-hash-values-in-c0x
