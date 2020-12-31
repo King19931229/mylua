@@ -55,6 +55,14 @@ void testParser(const String& chunk, const String& chunkName)
 
 int main()
 {
+	// StringArray res = StringUtil::Split("123;abc;@@@", ";");
+	// for(String& str : res)
+	// {
+	// 	printf("%s\n", str.c_str());
+	// }
+	// String in = "?.aa?.123?.^^^";
+	// String out = StringUtil::Replace(in, "?.", "!.");
+	// printf("%s\n", out.c_str());
 #if 0
 	FILE* f = fopen("hello.lua", "rb");
 	if (f)

@@ -195,19 +195,85 @@ int BaseNext(LuaState* ls)
 	}
 }
 
+int LoadAux(LuaState* ls, int status, int envIdx)
+{
+	if(status == LUA_OK)
+	{
+		if(envIdx != 0)
+		{
+			/* 'env' parameter? */
+			panic("todo!");
+		}
+		return 1;
+	}
+	else
+	{
+		/* error (message is on top of the stack) */
+		ls->PushNil();
+		/* put before error message */
+		ls->Insert(-2);
+		return 2;
+	}
+}
+
 int BaseLoad(LuaState* ls)
 {
-	return 0;
+	int status = 0;
+	auto strResult = ls->ToStringX(1);
+	const String& chunk = std::get<0>(strResult);
+	bool isStr = std::get<1>(strResult);
+	String mode = ls->OptString(3, "bt");
+	/* 'env' index or 0 if not 'env' */
+	int env = 0;
+	if(!ls->IsNone(4))
+	{
+		env = 4;
+	}
+	if(isStr)
+	{
+		/* loading a string? */
+		String chunkName = ls->OptString(2, chunk);
+
+		ByteArray chunkByte;
+		chunkByte.reserve(chunk.size());
+		for(const Byte& c : chunk)
+		{
+			chunkByte.push_back(c);
+		}
+		status = ls->Load(chunkByte, chunkName, mode);
+	}
+	else
+	{
+		/* loading from a reader function */
+		panic("loading from a reader function"); // todo
+	}
+	return LoadAux(ls, status, env);
 }
 
 int BaseLoadFile(LuaState* ls)
 {
-	return 0;
+	String fname = ls->OptString(1, "");
+	String mode = ls->OptString(2, "bt");
+	/* 'env' index or 0 if not 'env' */
+	int env = 0;
+	if(!ls->IsNone(3))
+	{
+		env = 3;
+	}
+	int status = ls->LoadFileX(fname, mode);
+	return LoadAux(ls, status, env);
 }
 
 int BaseDoFile(LuaState* ls)
 {
-	return 0;
+	String fname = ls->OptString(1, "bt");
+	ls->SetTop(1);
+	if(ls->LoadFile(fname) != LUA_OK)
+	{
+		return ls->Error();
+	}
+	ls->Call(0, LUA_MULTRET);
+	return ls->GetTop() - 1;
 }
 
 int BasePCall(LuaState* ls)
@@ -221,6 +287,7 @@ int BasePCall(LuaState* ls)
 
 int BaseXPCall(LuaState* ls)
 {
+	panic("todo");
 	return 0;
 }
 
@@ -469,4 +536,117 @@ std::tuple<String, String> _SearchPath(const String& _name, const String& path, 
 		errMsg += Format::FormatString("\n\t no file '%s'", filename.c_str());
 	}
 	return std::make_pair("", errMsg);
+}
+
+int PkgSearchPath(LuaState* ls)
+{
+	String name = ls->CheckString(1);
+	String path = ls->CheckString(2);
+	String sep = ls->OptString(3, ".");
+	String rep = ls->OptString(4, LUA_DIRSEP);
+	auto searchRes = _SearchPath(name, path, sep, rep);
+	const String& filename = std::get<0>(searchRes);
+	const String& errMsg = std::get<1>(searchRes);
+	if(errMsg == "")
+	{
+		ls->PushString(filename);
+		return 1;
+	}
+	else
+	{
+		ls->PushNil();
+		ls->PushString(errMsg);
+		return 2;
+	}
+}
+
+int PkgRequire(LuaState* ls)
+{
+	String name = ls->CheckString(1);
+	/* LOADED table will be at index 2 */
+	ls->SetTop(1);
+	ls->GetField(LUA_REGISTRYINDEX, LUA_LOADED_TABLE);
+	/* LOADED[name] */
+	ls->GetField(2, name);
+	/* is it there? */
+	if(ls->ToBoolean(-1))
+	{
+		/* package is already loaded */
+		return 1;
+	}
+	/* else must load package */
+	/* remove 'getfield' result */
+	ls->Pop(1);
+	_FindLoader(ls, name);
+	/* pass name as argument to module loader */
+	ls->PushString(name);
+	/* name is 1st argument (before search data) */
+	ls->Insert(-2);
+	/* run loader to load module */
+	ls->Call(2, 1);
+	/* non-nil return ? */
+	if(!ls->IsNil(-1))
+	{
+		/* LOADED[name] = returned value */
+		ls->SetField(2, name);
+	}
+	/* module set no value? */
+	if(ls->GetField(2, name) == LUA_TNIL)
+	{
+		/* use true as result */
+		ls->PushBoolean(true);
+		/* extra copy to be returned */
+		ls->PushValue(-1);
+		/* LOADED[name] = true */
+		ls->SetField(2, name);
+	}
+	return 1;
+}
+
+void _FindLoader(LuaState* ls, const String& name)
+{
+	/* push 'package.searchers' to index 3 in the stack */
+	if(ls->GetField(LuaUpvalueIndex(1), "searchers") != LUA_TTABLE)
+	{
+		ls->Error2("'package.searchers' must be a table");
+	}
+
+	/* to build error message */
+	String errMsg = "module '" + name + "' not found:";
+
+	/* iterate over available searchers to find a loader */
+	for(Int64 i = 1;;++i)
+	{
+		/* no more searchers */
+		if(ls->RawGetI(3, i) == LUA_TNIL)
+		{
+			/* remove nil */
+			ls->Pop(1);
+			/* create error message */
+			ls->Error2(errMsg.c_str());
+			return;
+		}
+
+		ls->PushString(name);
+		/* call it */
+		ls->Call(1, 2);
+		/* did it find a loader? */
+		if(ls->IsFunction(-2))
+		{
+			/* module loader found */
+			return;
+		}
+		else if(ls->IsString(-2))
+		{
+			/* remove extra return */
+			ls->Pop(1);
+			/* concatenate error message */
+			errMsg += ls->CheckString(-1);
+		}
+		else
+		{
+			/* remove both returns */
+			ls->Pop(2);
+		}
+	}
 }

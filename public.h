@@ -145,6 +145,7 @@ struct StringUtil
 		while(pos != String::npos)
 		{
 			result.replace(pos, replacee.length(), replacer);
+			pos = result.find(replacee, 0);
 		}
 		return result;
 	}
