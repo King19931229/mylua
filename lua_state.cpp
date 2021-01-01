@@ -168,6 +168,17 @@ LuaValue GetMetafield(const LuaValue& val, const String& fieldName, const LuaSta
 	return LuaValue::Nil;
 }
 
+LuaState::LuaState()
+{
+	stack = nullptr;
+	registry = nullptr;
+
+	coStatus = 0;
+	coCaller = nullptr;
+	coSet = false;
+	memset(coEnv, 0, sizeof(coEnv));
+}
+
 int LuaState::GetTop() const
 {
 	return (int)stack->top;
@@ -1097,4 +1108,94 @@ void LuaState::CloseUpvalues(int a)
 			++it;
 		}
 	}
+}
+
+/* Coroutline */
+
+LuaStatePtr LuaState::NewThread()
+{
+	LuaStatePtr t = LuaStatePtr(new LuaState());
+	t->registry = registry;
+	t->PushLuaStack(NewLuaStack(LUA_MINSTACK, t.get()));
+	stack->Push(LuaValue(t));
+	return t;
+}
+
+bool LuaState::IsMainThread()
+{
+	LuaValue mainThread = *registry->Get(LuaValue(LUA_RIDX_MAINTHREAD));
+	return mainThread.state.get() == this;
+}
+
+int LuaState::Resume(LuaState* fromState, int nArgs)
+{
+	// start coroutline
+	if(!coSet)
+	{
+		coCaller = fromState;
+	}
+	// resume coroutline
+	else
+	{
+		coStatus = LUA_OK;
+		longjmp(coEnv, 1);
+	}
+
+	if(setjmp(fromState->coEnv) == 0)
+	{
+		coStatus = PCall(nArgs, -1, 0);
+		longjmp(fromState->coEnv, 1);
+	}
+
+	return coStatus;
+}
+
+int LuaState::Yield(int nResults)
+{
+	coStatus = LUA_YIELD;
+	if(setjmp(coEnv) == 0)
+	{
+		coSet = true;
+		longjmp(coCaller->coEnv, 1);
+	}
+	// nResults
+	return GetTop();
+}
+
+int LuaState::Status()
+{
+	return coStatus;
+}
+
+bool LuaState::IsYieldable()
+{
+	if(IsMainThread())
+		return false;
+	
+	return coStatus != LUA_YIELD;
+}
+
+LuaStatePtr LuaState::ToThread(int idx)
+{
+	LuaValue val = stack->Get(idx);
+	// val and val.state could be null or not
+	return val.state;
+}
+
+void LuaState::XMove(LuaState* to, int n)
+{
+	LuaValueArray vals = stack->PopN(n);
+	to->stack->PushN(vals, n);
+}
+
+bool LuaState::GetStack()
+{
+	return stack->prev != nullptr;
+}
+
+bool LuaState::PushThread()
+{
+	// stack->Push(this);
+	panic("todo");
+	return IsMainThread();
 }

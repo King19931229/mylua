@@ -1,7 +1,9 @@
 #include "stdlib/lib_basic.h"
 #include "stdlib/lib_package.h"
+#include "stdlib/lib_coroutline.h"
 
 #ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
 #include <io.h>
 #include <direct.h>
 #include <windows.h>
@@ -649,4 +651,147 @@ void _FindLoader(LuaState* ls, const String& name)
 			ls->Pop(2);
 		}
 	}
+}
+
+/* Coroutline */
+int OpenCoroutlineLib(LuaState* ls)
+{
+	ls->NewLib(CoFuncs);
+	return 1;
+}
+
+int CoCreate(LuaState* ls)
+{
+	ls->CheckType(1, LUA_TFUNCTION);
+	LuaStatePtr ls2 = ls->NewThread();
+	/* move function to top */
+	ls->PushValue(1);
+	/* move function from ls to ls2 */
+	ls->XMove(ls2.get(), 1);
+	return 1;
+}
+
+int _AuxResume(LuaState* ls, LuaStatePtr co, int narg)
+{
+	if(!ls->CheckStack(narg))
+	{
+		ls->PushString("too many arguments to resume");
+		/* error flag */
+		return -1;
+	}
+	if(co->Status() == LUA_OK && co->GetTop() == 0)
+	{
+		ls->PushString("cannot resume dead coroutline");
+		/* error flag */
+		return -1;
+	}
+	ls->XMove(co.get(), narg);
+	int status = co->Resume(ls, narg);
+	if(status == LUA_OK || status == LUA_YIELD)
+	{
+		int nres = co->GetTop();
+		if(!ls->CheckStack(nres + 1))
+		{
+			/* remove results anyway */
+			co->Pop(nres);
+			ls->PushString("too many yielded values");
+			/* error flag */
+			return -1;
+		}
+		co->XMove(ls, nres);
+		return nres;
+	}
+	else
+	{
+		/* move error message */
+		co->XMove(ls, 1);
+		return -1;
+	}
+}
+
+int CoResume(LuaState* ls)
+{
+	LuaStatePtr co = ls->ToThread(1);
+	ls->ArgCheck(co != nullptr, 1, "thread expected");
+
+	int r = _AuxResume(ls, co, ls->GetTop() - 1);
+	if(r < 0)
+	{
+		ls->PushBoolean(false);
+		ls->Insert(-2);
+		/* return false + error message */
+		return 2;
+	}
+	else
+	{
+		ls->PushBoolean(true);
+		ls->Insert(-(r + 1));
+		return r + 1;
+	}
+}
+
+#undef Yield
+
+int CoYield(LuaState* ls)
+{
+	return ls->Yield(ls->GetTop());
+}
+
+int CoStatus(LuaState* ls)
+{
+	LuaStatePtr co = ls->ToThread(1);
+	ls->ArgCheck(co != nullptr, 1, "thread expected");
+	if(ls == co.get())
+	{
+		ls->PushString("running");
+	}
+	else
+	{
+		switch(co->Status())
+		{
+			case LUA_YIELD:
+				ls->PushString("suspended");
+				break;
+			case LUA_OK:
+				/* does it have frames */
+				if(co->GetStack())
+				{
+					/* it is running */
+					ls->PushString("normal");
+				}
+				else if(co->GetTop() == 0)
+				{
+					ls->PushString("dead");
+				}
+				else
+				{
+					ls->PushString("suspended");
+				}
+				break;
+			default:
+				/* some error occurred */
+				ls->PushString("dead");
+				break;
+		}
+	}
+	return 1;
+}
+
+int CoYieldable(LuaState* ls)
+{
+	ls->PushBoolean(ls->IsYieldable());
+	return 1;
+}
+
+int CoRunning(LuaState* ls)
+{
+	bool isMain = ls->PushThread();
+	ls->PushBoolean(isMain);
+	return 2;
+}
+
+int CoWrap(LuaState* ls)
+{
+	panic("todo: coWrap!");
+	return 0;
 }

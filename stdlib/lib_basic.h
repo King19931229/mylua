@@ -1,5 +1,4 @@
 #pragma once
-
 #include "state/lua_state.h"
 
 int OpenBaseLib(LuaState* ls);

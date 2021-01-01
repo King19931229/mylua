@@ -11,7 +11,6 @@ const LuaValuePtr LuaValue::NilPtr(NewLuaValue(LuaValue(LUA_TNIL)));
 
 const LuaTablePtr LuaTable::NilPtr(NewLuaTable(0, 0));
 
-// TODO
 size_t LuaValue::Hash() const
 {
 	size_t hash = 0;
@@ -37,6 +36,7 @@ size_t LuaValue::Hash() const
 	}
 	HashCombine(hash, _BKDR(str.c_str(), str.length()));
 	HashCombine(hash, table ? (size_t)table.get() : 0);
+	HashCombine(hash, state ? (size_t)state.get() : 0);
 	// Don't be stupid to hash the closure pointer
 	if(closure)
 	{

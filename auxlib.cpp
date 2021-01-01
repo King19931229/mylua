@@ -1,6 +1,7 @@
 #include "state/lua_state.h"
 #include "stdlib/lib_basic.h"
 #include "stdlib/lib_package.h"
+#include "stdlib/lib_coroutline.h"
 
 int LuaState::Error2(const char* fmt, ...)
 {
@@ -316,6 +317,7 @@ void LuaState::OpenLibs()
 	FuncReg libs[] = {
 		{"_G", OpenBaseLib},
 		{"package", OpenPackageLib},
+		{"coroutline", OpenCoroutlineLib},
 		{nullptr, nullptr}
 	};
 

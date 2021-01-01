@@ -6,6 +6,7 @@
 #include "binchunk/binary_chunk.h"
 #include "binchunk/reader.h"
 #include "compiler/compiler.h"
+#include <setjmp.h>
 
 enum ArithOp
 {
@@ -38,6 +39,13 @@ struct LuaState
 {
 	LuaStackPtr stack;
 	LuaTablePtr registry;
+
+	int coStatus;
+	LuaState* coCaller;
+	jmp_buf coEnv;
+	bool coSet;
+
+	LuaState();
 
 	int GetTop() const;
 	int AbsIndex(int idx) const;
@@ -171,21 +179,31 @@ struct LuaState
 	void IntError(int arg);
 	void TagError(int arg, LuaType tag);
 	int TypeError(int arg, const String& tname);
+	/* Coroutline */
+	LuaStatePtr NewThread();
+	bool IsMainThread();
+	int Resume(LuaState* fromState, int nArgs);
+	int Yield(int nResults);
+	int Status();
+	bool IsYieldable();
+	LuaStatePtr ToThread(int idx);
+	void XMove(LuaState* to, int n);
+	bool GetStack();
+	bool PushThread();
 };
 
 inline LuaStatePtr NewLuaState()
 {
-	LuaTablePtr registry = NewLuaTable(0, 0);
+	LuaStatePtr ls = LuaStatePtr(new LuaState());
+
+	LuaValue mainThread = LuaValue(ls);
 	LuaValue global = LuaValue(NewLuaTable(0, 0));
+
+	LuaTablePtr registry = NewLuaTable(0, 0);
+	registry->Put(LuaValue(LUA_RIDX_MAINTHREAD), mainThread);
 	registry->Put(LuaValue(LUA_RIDX_GLOBALS), global);
 
-	LuaStatePtr ls = LuaStatePtr(new LuaState
-		{
-			nullptr,
-			registry
-		}
-	);
-
+	ls->registry = registry;
 	ls->PushLuaStack(NewLuaStack(LUA_MINSTACK, ls.get()));
 
 	return ls;

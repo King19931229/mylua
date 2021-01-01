@@ -17,6 +17,7 @@ struct LuaValue
 	std::string str;
 	LuaTablePtr table = nullptr;
 	ClosurePtr closure = nullptr;
+	LuaStatePtr state = nullptr;
 
 	const static LuaValue NoValue;
 	const static LuaValue Nil;
@@ -29,6 +30,7 @@ struct LuaValue
 	inline bool IsString() const { return tag == LUA_TSTRING; }
 	inline bool IsTable() const { return tag == LUA_TTABLE; }
 	inline bool IsClosure() const { return tag == LUA_TFUNCTION; }
+	inline bool IsThread() const { return tag == LUA_TTHREAD; }
 
 	static size_t _BKDR(const char* pData, size_t uLen)
 	{
@@ -131,6 +133,14 @@ struct LuaValue
 		tag = LUA_TFUNCTION;
 		integer = 0;
 		closure = c;
+		isfloat = false;
+	}
+
+	explicit LuaValue(LuaStatePtr s)
+	{
+		tag = LUA_TTHREAD;
+		integer = 0;
+		state = s;
 		isfloat = false;
 	}
 };
