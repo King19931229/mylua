@@ -103,7 +103,7 @@ inline std::tuple<Float64, bool> ParseFloat(const String& str)
 						success = false;
 						break;
 					}
-					Float64 e = std::get<0>(pair);
+					Float64 e = (Float64)std::get<0>(pair);
 					number = number * pow(2.0, e);
 					// fast break
 					i = str.size() - 1;
@@ -161,7 +161,7 @@ inline std::tuple<Float64, bool> ParseFloat(const String& str)
 						success = false;
 						break;
 					}
-					Float64 e = std::get<0>(pair);
+					Float64 e = (Float64)std::get<0>(pair);
 					number = number * pow(10.0, e);
 					// fast break
 					i = str.size() - 1;

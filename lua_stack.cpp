@@ -238,6 +238,15 @@ void PrintStack(LuaState& state)
 			case LUA_TBOOLEAN: printf("[%s]", Format::FromBool(state.ToBoolean(i)).c_str()); break;
 			case LUA_TNUMBER: printf("[%s]", Format::FromFloat64(state.ToNumber(i)).c_str()); break;
 			case LUA_TSTRING: printf("[%s]", state.ToString(i).c_str()); break;
+			case LUA_TFUNCTION:
+			{
+				if (state.IsCFunction(i))
+				{
+					CFunction cFunc = state.ToCFunction(i);
+					printf("[%s]", cFuncNames[cFunc].c_str());
+					break;
+				}
+			}
 			default: printf("[%s]", state.TypeName(t).c_str()); break;
 		}
 	}

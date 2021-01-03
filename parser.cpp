@@ -1230,8 +1230,8 @@ ExpPtr OptimizeArithBinaryOp(ExpPtr exp)
 	auto yPair = CastToFloat(binExp->Exp2);
 	if(std::get<1>(xPair) && std::get<1>(yPair))
 	{
-		float x = std::get<0>(xPair);
-		float y = std::get<0>(yPair);
+		Float64 x = std::get<0>(xPair);
+		Float64 y = std::get<0>(yPair);
 		switch (binExp->Op)
 		{
 			case TOKEN_OP_ADD:
@@ -1279,9 +1279,9 @@ ExpPtr OptimizeArithBinaryOp(ExpPtr exp)
 			{
 				if(y != 0)
 				{
-					ExpPtr newExp = Exp::New<IntegerExp>();
-					newExp->Cast<IntegerExp>()->Line = binExp->Line;
-					newExp->Cast<IntegerExp>()->Val = FMod(x, y);
+					ExpPtr newExp = Exp::New<FloatExp>();
+					newExp->Cast<FloatExp>()->Line = binExp->Line;
+					newExp->Cast<FloatExp>()->Val = FMod(x, y);
 					return newExp;
 				}
 			}

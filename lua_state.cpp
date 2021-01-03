@@ -174,9 +174,7 @@ LuaState::LuaState()
 	registry = nullptr;
 
 	coStatus = 0;
-	coCaller = nullptr;
-	coSet = false;
-	memset(coEnv, 0, sizeof(coEnv));
+	coResults = 0;
 }
 
 int LuaState::GetTop() const
@@ -754,15 +752,31 @@ void LuaState::RunLuaClosure()
 	{
 		Instruction inst = Instruction(Fetch());
 #if DEBUG_PRINT_ENABLE
+		LuaStackPtr counter = stack;
+		int depth = 0;
+		while (counter->prev)
+		{
+			++depth;
+			counter = counter->prev;
+		}
+		for (int i = 0; i < depth * 5; ++i)
+			printf("<");
+		printf("thread:0x%x stack:0x%x pc:%d\n", (size_t)this, (size_t)stack.get(), stack->pc - 1);
+		puts("----------Stack Before Execution----------");
+		PrintStack(*this);
+		puts("----------Stack Before Execution----------");
 		DEBUG_PRINT("%s", inst.OpName().c_str());
 		Prototype::PrintOperands(inst);
 		puts("");
 #endif
 		inst.Execute(this);
 #if DEBUG_PRINT_ENABLE
-		puts("----------Print Stack Begin----------");
+		puts("----------Stack After Execution----------");
 		PrintStack(*this);
-		puts("----------Print Stack Finish----------");
+		puts("----------Stack After Execution----------");
+		for (int i = 0; i < depth * 5; ++i)
+			printf(">");
+		printf("thread:0x%x stack:0x%x pc:%d\n", (size_t)this, (size_t)stack.get(), stack->pc - 1);
 #endif
 		if(inst.Opcode() == OP_RETURN)
 			break;
@@ -860,7 +874,15 @@ void LuaState::Call(int nArgs, int nResults)
 		}
 		else
 		{
-			DEBUG_PRINT("call c function");
+			auto it = cFuncNames.find(c->cFunc);
+			if (it != cFuncNames.end())
+			{
+				DEBUG_PRINT("%s", it->second.c_str());
+			}
+			else
+			{
+				DEBUG_PRINT("call c function");
+			}
 		}
 
 		if(c->proto != nullptr)
@@ -1013,6 +1035,10 @@ int LuaState::PCall(int nArgs, int nResults, int msgh)
 		}
 		stack->Push(LuaValue(msg));
 	}
+	catch(int st)
+	{
+		status = st;
+	}
 	catch(...)
 	{
 		printf("panic\n");
@@ -1029,7 +1055,14 @@ int LuaState::PC() const { return stack->pc; }
 
 void LuaState::AddPC(int n) { stack->pc += n; }
 
-UInt32 LuaState::Fetch() { return stack->closure->proto->Code[stack->pc++]; }
+UInt32 LuaState::Fetch()
+{
+	panic_cond(stack, "stack must not empty");
+	panic_cond(stack->closure, "closure must not empty");
+	panic_cond(stack->closure->proto, "proto must not empty");
+	panic_cond(stack->pc < (int)stack->closure->proto->Code.size(), "pc out of bound");
+	return stack->closure->proto->Code[stack->pc++];
+}
 
 void LuaState::GetConst(int idx)
 {
@@ -1110,7 +1143,7 @@ void LuaState::CloseUpvalues(int a)
 	}
 }
 
-/* Coroutline */
+/* Coroutine */
 
 LuaStatePtr LuaState::NewThread()
 {
@@ -1129,37 +1162,65 @@ bool LuaState::IsMainThread()
 
 int LuaState::Resume(LuaState* fromState, int nArgs)
 {
-	// start coroutline
-	if(!coSet)
+	// start coroutine	
+	if(coStatus == LUA_OK)
 	{
-		coCaller = fromState;
+		coStatus = PCall(nArgs, -1, 0);
 	}
-	// resume coroutline
+	// resume coroutine
 	else
 	{
 		coStatus = LUA_OK;
-		longjmp(coEnv, 1);
-	}
+		int nResults = coResults;
 
-	if(setjmp(fromState->coEnv) == 0)
-	{
-		coStatus = PCall(nArgs, -1, 0);
-		longjmp(fromState->coEnv, 1);
+		LuaStackPtr caller = stack->prev;
+		LuaValueArray returns = caller->PopN(nResults);
+		LuaValueArray arguments = stack->PopN(nArgs);
+		stack->Check(nResults);
+		stack->PushN(returns, nResults);
+		//PrintStack(*this);
+		int top = caller->top;
+		caller->PushN(returns, nResults);
+		caller->PushN(arguments, nArgs);
+		caller->Push(LuaValue((Int64)top));
+		PopLuaStack();
+		//PrintStack(*this);
+
+		try
+		{
+			if (stack->closure->proto)
+				RunLuaClosure();
+			else
+				stack->closure->cFunc(this);
+		}
+		catch (const String& msg)
+		{
+			while (stack != caller)
+			{
+				PopLuaStack();
+			}
+			stack->Push(LuaValue(msg));
+		}
+		catch (int st)
+		{
+			coStatus = st;
+		}
+		catch (...)
+		{
+			printf("panic\n");
+			exit(0);
+		}
 	}
 
 	return coStatus;
 }
 
-int LuaState::Yield(int nResults)
+void LuaState::Yield(int nResults)
 {
 	coStatus = LUA_YIELD;
-	if(setjmp(coEnv) == 0)
-	{
-		coSet = true;
-		longjmp(coCaller->coEnv, 1);
-	}
-	// nResults
-	return GetTop();
+	panic_cond(nResults == GetTop(), "must yield all arguments");
+	coResults = nResults;
+	throw LUA_YIELD;
 }
 
 int LuaState::Status()

@@ -90,7 +90,7 @@ int main()
 	}
 #else
 	//FILE* f = fopen("C:/LearnCompiler/lua-5.3.6/src/hello.luac", "rb");
-	FILE* f = fopen("hello.lua", "rb");
+	FILE* f = fopen("mymod.lua", "rb");
 	if (f)
 	{
 		fseek(f, 0, SEEK_END);

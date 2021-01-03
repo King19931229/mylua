@@ -35,16 +35,16 @@ enum CompareOp
 
 void PrintStack(LuaState& state);
 
+// todo
+extern std::unordered_map<CFunction, String> cFuncNames;
+
 struct LuaState
 {
 	LuaStackPtr stack;
 	LuaTablePtr registry;
 
 	int coStatus;
-	LuaState* coCaller;
-	jmp_buf coEnv;
-	bool coSet;
-
+	int coResults;
 	LuaState();
 
 	int GetTop() const;
@@ -179,11 +179,11 @@ struct LuaState
 	void IntError(int arg);
 	void TagError(int arg, LuaType tag);
 	int TypeError(int arg, const String& tname);
-	/* Coroutline */
+	/* Coroutine */
 	LuaStatePtr NewThread();
 	bool IsMainThread();
 	int Resume(LuaState* fromState, int nArgs);
-	int Yield(int nResults);
+	void Yield(int nResults);
 	int Status();
 	bool IsYieldable();
 	LuaStatePtr ToThread(int idx);

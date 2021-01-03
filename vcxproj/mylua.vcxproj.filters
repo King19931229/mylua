@@ -1,0 +1,144 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="源文件">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="头文件">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="资源文件">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\auxlib.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\codegen.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\dumper.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\lexer.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\lib.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\lua_stack.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\lua_state.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\main.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\parser.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\public.h">
+      <Filter>源文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\binchunk\binary_chunk.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\binchunk\reader.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\compiler\parser\optimizer.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\compiler\parser\parser.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\compiler\parser\parser_block.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\compiler\parser\parser_exp.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\compiler\lexer\lexer.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\compiler\dumper\dumper.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\compiler\codegen\func_info.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\compiler\ast\ast_struct.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\compiler\ast\block.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\compiler\ast\exp.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\compiler\ast\stat.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\number\math.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\number\parser.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\state\api_arith.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\state\api_compare.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\state\closure.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\state\lua_stack.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\state\lua_state.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\state\lua_table.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\state\lua_value.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\stdlib\lib_basic.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\stdlib\lib_package.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\vm\inst_call.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\vm\inst_misc.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\vm\inst_operators.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\vm\inst_table.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\vm\inst_upvalue.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\vm\opcodes.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\stdlib\lib_coroutine.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

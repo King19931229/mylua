@@ -1,6 +1,6 @@
 #include "stdlib/lib_basic.h"
 #include "stdlib/lib_package.h"
-#include "stdlib/lib_coroutline.h"
+#include "stdlib/lib_coroutine.h"
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
@@ -20,6 +20,12 @@
 #define ACCESS(path, mode) _access(path, mode)
 #define MKDIR(path) _mkdir(path)
 #define RMDIR(path) _rmdir(path)
+#ifdef _MSC_VER
+#define F_OK	0	/* Check for file existence */
+#define X_OK	1	/* MS access() doesn't check for execute permission. */
+#define W_OK	2	/* Check for write permission */
+#define R_OK	4	/* Check for read permission */
+#endif
 #else
 #define ACCESS(path, mode) access(path, mode)
 #define MKDIR(path) mkdir(path, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH)
@@ -97,7 +103,7 @@ int BaseAssert(LuaState* ls)
 
 int BaseError(LuaState* ls)
 {
-	int level = ls->OptInteger(2, 1);
+	Int64 level = ls->OptInteger(2, 1);
 	ls->SetTop(1);
 	if(ls->Type(1) == LUA_TSTRING && level > 0)
 	{
@@ -129,7 +135,7 @@ int BaseSelect(LuaState* ls)
 		// i == 0 will return all arguments(index, ...)
 		// i == n will return nothing
 		ls->ArgCheck(1 <= i, 1, "index out of range");
-		return n - i;
+		return (int)(n - i);
 	}
 }
 
@@ -653,8 +659,8 @@ void _FindLoader(LuaState* ls, const String& name)
 	}
 }
 
-/* Coroutline */
-int OpenCoroutlineLib(LuaState* ls)
+/* Coroutine */
+int OpenCoroutineLib(LuaState* ls)
 {
 	ls->NewLib(CoFuncs);
 	return 1;
@@ -681,7 +687,7 @@ int _AuxResume(LuaState* ls, LuaStatePtr co, int narg)
 	}
 	if(co->Status() == LUA_OK && co->GetTop() == 0)
 	{
-		ls->PushString("cannot resume dead coroutline");
+		ls->PushString("cannot resume dead coroutine");
 		/* error flag */
 		return -1;
 	}
@@ -734,7 +740,9 @@ int CoResume(LuaState* ls)
 
 int CoYield(LuaState* ls)
 {
-	return ls->Yield(ls->GetTop());
+	int nResults = ls->GetTop();
+	ls->Yield(nResults);
+	return nResults;
 }
 
 int CoStatus(LuaState* ls)

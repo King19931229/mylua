@@ -81,7 +81,7 @@ struct LuaTable
 		LuaValue key = _FloatToInteger(_key);
 		if(key.IsInt64())
 		{
-			Int64 idx = key.integer;
+			size_t idx = (size_t)key.integer;
 			if(idx >= 1 && idx <= arr.size())
 			{
 				return arr[idx - 1];
@@ -102,7 +102,7 @@ struct LuaTable
 
 		if(key.IsInt64())
 		{
-			Int64 idx = key.integer;
+			size_t idx = (size_t)key.integer;
 			if(idx >= 1)
 			{
 				if(idx <= arr.size())

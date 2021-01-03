@@ -45,7 +45,7 @@ struct __table_insts__
 		bool bIsZero = b == 0;
 		if(bIsZero)
 		{
-			b = vm->ToInteger(-1) - a - 1;
+			b = (int)vm->ToInteger(-1) - a - 1;
 			vm->Pop(1); 
 		}
 

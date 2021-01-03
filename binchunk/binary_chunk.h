@@ -243,7 +243,7 @@ struct Prototype
 		for(size_t i = 0; i < Upvalues.size(); ++i)
 		{
 			const Upvalue& upval = Upvalues[i];
-			printf("\t%d\t%s\t\%d\t%d", i, UpvalName(i).c_str(), upval.Instack, upval.Idx);
+			printf("\t%d\t%s\t%d\t%d", i, UpvalName(i).c_str(), upval.Instack, upval.Idx);
 		}
 	}
 

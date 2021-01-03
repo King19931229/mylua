@@ -1,7 +1,7 @@
 #include "state/lua_state.h"
 #include "stdlib/lib_basic.h"
 #include "stdlib/lib_package.h"
-#include "stdlib/lib_coroutline.h"
+#include "stdlib/lib_coroutine.h"
 
 int LuaState::Error2(const char* fmt, ...)
 {
@@ -317,7 +317,7 @@ void LuaState::OpenLibs()
 	FuncReg libs[] = {
 		{"_G", OpenBaseLib},
 		{"package", OpenPackageLib},
-		{"coroutline", OpenCoroutlineLib},
+		{"coroutine", OpenCoroutineLib},
 		{nullptr, nullptr}
 	};
 
@@ -377,6 +377,8 @@ void LuaState::NewLibTable(const FuncReg* l)
 	CreateTable(0, nRec);
 }
 
+std::unordered_map<CFunction, String> cFuncNames;
+
 void LuaState::SetFuncs(const FuncReg* l, int nup)
 {
 	CheckStack2(nup, "too many upvalues");
@@ -385,6 +387,7 @@ void LuaState::SetFuncs(const FuncReg* l, int nup)
 	while(lib && lib->name)
 	{
 		DEBUG_PRINT("Register: %s\t0x%x\n", lib->name, (size_t)lib->func);
+		cFuncNames.insert({ lib->func, lib->name });
 		/* copy upvalues to the top */
 		for(int i = 0; i < nup; ++i)
 			PushValue(-nup);
