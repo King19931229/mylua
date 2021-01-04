@@ -246,6 +246,12 @@ void PrintStack(LuaState& state)
 					printf("[%s]", cFuncNames[cFunc].c_str());
 					break;
 				}
+				else if (state.IsProto(i))
+				{
+					PrototypePtr proto = state.ToProto(i);
+					printf("[proto]");
+					break;
+				}
 			}
 			default: printf("[%s]", state.TypeName(t).c_str()); break;
 		}

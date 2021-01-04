@@ -120,6 +120,8 @@ struct LuaState
 	void PushCFunction(CFunction c);
 	bool IsCFunction(int idx);
 	CFunction ToCFunction(int idx);
+	bool IsProto(int idx);
+	PrototypePtr ToProto(int idx);
 	void PushGlobalTable();
 	LuaType GetGlobal(const String& name);
 	void SetGlobal(const String& name);
@@ -190,6 +192,7 @@ struct LuaState
 	void XMove(LuaState* to, int n);
 	bool GetStack();
 	bool PushThread();
+	void _FixYieldStack(int nArgs);
 };
 
 inline LuaStatePtr NewLuaState()

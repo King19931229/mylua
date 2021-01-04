@@ -211,7 +211,7 @@ void LuaState::PushValue(int idx)
 	stack->Push(val);
 }
 
-	// Pop the value from the top, and set it back the stack by the index(so the index should be > 0)
+// Pop the value from the top, and set it back the stack by the index(so the index should be > 0)
 void LuaState::Replace(int idx)
 {
 	LuaValue val = *stack->Pop();
@@ -760,7 +760,7 @@ void LuaState::RunLuaClosure()
 			counter = counter->prev;
 		}
 		for (int i = 0; i < depth * 5; ++i)
-			printf("<");
+			printf("(");
 		printf("thread:0x%x stack:0x%x pc:%d\n", (size_t)this, (size_t)stack.get(), stack->pc - 1);
 		puts("----------Stack Before Execution----------");
 		PrintStack(*this);
@@ -774,9 +774,10 @@ void LuaState::RunLuaClosure()
 		puts("----------Stack After Execution----------");
 		PrintStack(*this);
 		puts("----------Stack After Execution----------");
+		printf("thread:0x%x stack:0x%x pc:%d", (size_t)this, (size_t)stack.get(), stack->pc - 1);
 		for (int i = 0; i < depth * 5; ++i)
-			printf(">");
-		printf("thread:0x%x stack:0x%x pc:%d\n", (size_t)this, (size_t)stack.get(), stack->pc - 1);
+			printf(")");
+		puts("");
 #endif
 		if(inst.Opcode() == OP_RETURN)
 			break;
@@ -875,7 +876,7 @@ void LuaState::Call(int nArgs, int nResults)
 		else
 		{
 			auto it = cFuncNames.find(c->cFunc);
-			if (it != cFuncNames.end())
+			if (it != cFuncNames.end() && it->second.length() > 0)
 			{
 				DEBUG_PRINT("%s", it->second.c_str());
 			}
@@ -928,6 +929,26 @@ CFunction LuaState::ToCFunction(int idx)
 	if(val.IsClosure())
 	{
 		return val.closure->cFunc;
+	}
+	return nullptr;
+}
+
+bool LuaState::IsProto(int idx)
+{
+	LuaValue val = stack->Get(idx);
+	if (val.IsClosure())
+	{
+		return val.closure->proto != nullptr;
+	}
+	return false;
+}
+
+PrototypePtr LuaState::ToProto(int idx)
+{
+	LuaValue val = stack->Get(idx);
+	if (val.IsClosure())
+	{
+		return val.closure->proto;
 	}
 	return nullptr;
 }
@@ -1160,6 +1181,42 @@ bool LuaState::IsMainThread()
 	return mainThread.state.get() == this;
 }
 
+void LuaState::_FixYieldStack(int nArgs)
+{
+	// Resume values have been pushed into the current stack
+	LuaValueArray arguments = stack->PopN(nArgs);
+	// Pop the yield call stack
+	PopLuaStack();
+	// Check the stack size
+	stack->Check(nArgs);
+	// Push the resume arguments into the stack as yield returns
+	stack->PushN(arguments, nArgs);
+	// Recover the pc
+	--stack->pc;
+
+	Instruction inst = Instruction(Fetch());
+	int opCode = inst.Opcode();
+	panic_cond(opCode == OP_CALL || opCode == OP_TAILCALL, "must fix a function call");
+
+	// Finish the unfinished process
+	if (opCode == OP_CALL)
+	{
+		auto abc = inst.ABC();
+		int a = std::get<0>(abc) + 1;
+		// int b = std::get<1>(abc);
+		int c = std::get<2>(abc);
+		__call_insts__::_popResults(a, c, this);
+	}
+	else if (opCode == OP_TAILCALL)
+	{
+		auto ab_ = inst.ABC();
+		int a = std::get<0>(ab_) + 1;
+		// int b = std::get<1>(ab_);
+		int c = 0;
+		__call_insts__::_popResults(a, c, this);
+	}
+}
+
 int LuaState::Resume(LuaState* fromState, int nArgs)
 {
 	// start coroutine	
@@ -1172,19 +1229,8 @@ int LuaState::Resume(LuaState* fromState, int nArgs)
 	{
 		coStatus = LUA_OK;
 		int nResults = coResults;
-
 		LuaStackPtr caller = stack->prev;
-		LuaValueArray returns = caller->PopN(nResults);
-		LuaValueArray arguments = stack->PopN(nArgs);
-		stack->Check(nResults);
-		stack->PushN(returns, nResults);
-		//PrintStack(*this);
-		int top = caller->top;
-		caller->PushN(returns, nResults);
-		caller->PushN(arguments, nArgs);
-		caller->Push(LuaValue((Int64)top));
-		PopLuaStack();
-		//PrintStack(*this);
+		_FixYieldStack(nArgs);
 
 		try
 		{

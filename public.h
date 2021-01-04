@@ -69,7 +69,7 @@ inline void warning(const char* message)
 	printf("warning: %s\n", message);
 }
 
-//#define VERBOSE_PRINT
+// #define VERBOSE_PRINT
 
 #if defined(_DEBUG) && defined(VERBOSE_PRINT)
 #define DEBUG_PRINT_ENABLE 1
