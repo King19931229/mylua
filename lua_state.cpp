@@ -8,6 +8,8 @@
 #include "vm/inst_upvalue.h"
 #include "vm/opcodes.h"
 
+String g_panic_message;
+
 const OpCode opcodes[47] =
 {
 #define MAKE_OP_CODE(T, A, B, C, mode, name, action) OpCode{T, A, B, C, mode, #name, action}
@@ -174,7 +176,6 @@ LuaState::LuaState()
 	registry = nullptr;
 
 	coStatus = 0;
-	coResults = 0;
 }
 
 int LuaState::GetTop() const
@@ -1038,34 +1039,15 @@ int LuaState::Error()
 	return LUA_ERRRUN;
 }
 
+void LuaState::_Call(int nArgs, int nResults)
+{
+	Call(nArgs, nResults);
+}
+
 int LuaState::PCall(int nArgs, int nResults, int msgh)
 {
 	int status = LUA_ERRRUN;
-	LuaStackPtr caller = stack;
-
-	try
-	{
-		Call(nArgs, nResults);
-		status = LUA_OK;
-	}
-	catch(const String& msg)
-	{
-		while(stack != caller)
-		{
-			PopLuaStack();
-		}
-		stack->Push(LuaValue(msg));
-	}
-	catch(int st)
-	{
-		status = st;
-	}
-	catch(...)
-	{
-		printf("panic\n");
-		exit(0);
-	}
-
+	status = _ProtectedRun(&LuaState::_Call, nArgs, nResults);
 	return status;
 }
 
@@ -1217,47 +1199,57 @@ void LuaState::_FixYieldStack(int nArgs)
 	}
 }
 
-int LuaState::Resume(LuaState* fromState, int nArgs)
+int LuaState::_ProtectedRun(FunctionCall func, int nArgs, int nResults)
 {
-	// start coroutine	
-	if(coStatus == LUA_OK)
+	LuaStackPtr caller = stack;
+	try
 	{
-		coStatus = PCall(nArgs, -1, 0);
+		(this->*func)(nArgs, nResults);
 	}
-	// resume coroutine
-	else
+	catch (int st)
 	{
-		coStatus = LUA_OK;
-		int nResults = coResults;
-		LuaStackPtr caller = stack->prev;
-		_FixYieldStack(nArgs);
-
-		try
-		{
-			if (stack->closure->proto)
-				RunLuaClosure();
-			else
-				stack->closure->cFunc(this);
-		}
-		catch (const String& msg)
+		if (st == LUA_ERRRUN || st == LUA_ERRERR)
 		{
 			while (stack != caller)
 			{
 				PopLuaStack();
 			}
-			stack->Push(LuaValue(msg));
+			stack->Push(LuaValue(g_panic_message));
 		}
-		catch (int st)
-		{
-			coStatus = st;
-		}
-		catch (...)
-		{
-			printf("panic\n");
-			exit(0);
-		}
+		return st;
 	}
+	catch (...)
+	{
+		printf("panic\n");
+		exit(0);
+	}
+	return LUA_OK;
+}
 
+void LuaState::_Resume(int nArgs, int nResults)
+{
+	// start coroutine	
+	if (coStatus == LUA_OK)
+	{
+		Call(nArgs, nResults);
+	}
+	// resume coroutine
+	else
+	{
+		coStatus = LUA_OK;
+		LuaStackPtr caller = stack->prev;
+		_FixYieldStack(nArgs);
+		if (stack->closure->proto)
+			RunLuaClosure();
+		else
+			stack->closure->cFunc(this);
+	}
+}
+
+int LuaState::Resume(LuaState* fromState, int nArgs)
+{
+	LuaStackPtr caller = stack;
+	coStatus = _ProtectedRun(&LuaState::_Resume, nArgs, -1);
 	return coStatus;
 }
 
@@ -1265,7 +1257,6 @@ void LuaState::Yield(int nResults)
 {
 	coStatus = LUA_YIELD;
 	panic_cond(nResults == GetTop(), "must yield all arguments");
-	coResults = nResults;
 	throw LUA_YIELD;
 }
 

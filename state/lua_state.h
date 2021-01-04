@@ -42,9 +42,8 @@ struct LuaState
 {
 	LuaStackPtr stack;
 	LuaTablePtr registry;
-
 	int coStatus;
-	int coResults;
+
 	LuaState();
 
 	int GetTop() const;
@@ -192,7 +191,13 @@ struct LuaState
 	void XMove(LuaState* to, int n);
 	bool GetStack();
 	bool PushThread();
+
 	void _FixYieldStack(int nArgs);
+
+	using FunctionCall = void(LuaState::*)(int, int); // void(LuaState::* Function)(int, int)
+	void _Resume(int nArgs, int nResults);
+	void _Call(int nArgs, int nResults);
+	int _ProtectedRun(FunctionCall func, int nArgs, int nResults);
 };
 
 inline LuaStatePtr NewLuaState()

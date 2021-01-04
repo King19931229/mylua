@@ -56,12 +56,16 @@ struct RTTI
 	}
 };
 
+extern String g_panic_message;
+
 inline void panic(const char* message)
 {
+	g_panic_message = message;
 	// printf("panic exit: %s\n", message);
 	// exit(0);
 	printf("%s\n", message);
-	throw(String(message));
+	// LUA_ERRRUN
+	throw 2;
 }
 
 inline void warning(const char* message)
