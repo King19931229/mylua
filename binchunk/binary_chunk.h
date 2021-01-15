@@ -8,17 +8,17 @@ struct BinaryChunk
 {
 	struct Head
 	{
-		Byte signature[4];
-		Byte version;
-		Byte format;
-		Byte luacData[6];
-		Byte cintSize;
-		Byte sizetSize;
-		Byte instructionSize;
-		Byte luaIntegerSize;
-		Byte luaNumberSize;
-		Int64 luacInt;
-		Float64 luacNum;
+		Byte signature[4]; // fixed 0x1B, 0x4C, 0x75, 0x61
+		Byte version; // change 0x53 or 0x52 and so on
+		Byte format; // fixed 0
+		Byte luacData[6]; // fixed 0x19, 0x93, 0x0D, 0X0A, 0X1A, 0X0A
+		Byte cintSize; // fixed 4
+		Byte sizetSize; // change 4 or 8
+		Byte instructionSize; // fixed 4
+		Byte luaIntegerSize; // fixed 8
+		Byte luaNumberSize; // fixed 8
+		Int64 luacInt; // fixed 0x00,00,00,00,00,00,56,78(uint64)
+		Float64 luacNum; // fixed 370.5(double)
 	};
 
 	Head header;
@@ -29,8 +29,7 @@ struct BinaryChunk
 constexpr static Byte LUA_SIGNATURE[4] = {0x1B, 0x4C, 0x75, 0x61};
 constexpr static Byte LUAC_VERSION = 0x53;
 constexpr static Byte LUAC_FORMAT = 0;
-constexpr static Byte LUAC_DATA[6] = {0x19, 0x93, 0x0D,
-	0x0A, 0x1A, 0x0A};
+constexpr static Byte LUAC_DATA[6] = {0x19, 0x93, 0x0D,	0x0A, 0x1A, 0x0A};
 constexpr static Byte CINT_SIZE = 4;
 constexpr static Byte CSIZE_SIZE = sizeof(size_t);
 constexpr static Byte INSTRUCTION_SIZE = 4;

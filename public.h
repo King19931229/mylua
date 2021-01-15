@@ -268,7 +268,6 @@ inline void HashCombine(std::uint32_t& seed, const T& val)
 template <class T>
 inline void HashCombine(std::uint64_t& seed, const T& val)
 {
-	std::hash<T> hasher;
 	seed ^= std::hash<T>{}(val) + 0x9e3779b97f4a7c15LLU + (seed<<12) + (seed>>4);
 }
 

@@ -212,11 +212,6 @@ void LuaStack::Set(int idx, const LuaValue& value)
 	}
 
 	int absIdx = AbsIndex(idx);
-
-	if(absIdx > top)
-		top = absIdx;
-	panic_cond(top <= (int)slots.size(), "top out of bound");
-
 	if(absIdx > 0 && absIdx <= top)
 	{
 		slots[absIdx - 1] = NewLuaValue(value);

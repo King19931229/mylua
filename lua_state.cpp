@@ -803,7 +803,7 @@ void LuaState::CallLuaClosure(int nArgs, int nResults, ClosurePtr c)
 	newStack->PushN(Slice(funcAndArgs, 1, funcAndArgs.size()), nParams);
 	panic_cond(nRegs >= nParams, "nRegs is less than nParams");
 	newStack->top = nRegs;
-	if(nArgs > nParams && isVararg)
+	if (nArgs > nParams && isVararg)
 	{
 		// Assign the varargs arguments
 		newStack->varargs = Slice(funcAndArgs, nParams + 1, funcAndArgs.size());
@@ -813,7 +813,10 @@ void LuaState::CallLuaClosure(int nArgs, int nResults, ClosurePtr c)
 	RunLuaClosure();
 	PopLuaStack();
 
-	if(nResults != 0)
+	panic_cond(!stack->closure || stack->closure->cFunc || stack->top == stack->closure->proto->MaxStackSize,
+		"return values must locate on MaxStackSize of current call frame");
+
+	if (nResults != 0)
 	{
 		// Pop the return values from the newStack
 		LuaValueArray results = newStack->PopN(newStack->top - nRegs);
@@ -1237,18 +1240,48 @@ void LuaState::_Resume(int nArgs, int nResults)
 	else
 	{
 		coStatus = LUA_OK;
-		LuaStackPtr caller = stack->prev;
 		_FixYieldStack(nArgs);
+
+		LuaStackPtr newStack = stack;
+
 		if (stack->closure->proto)
+		{
+			int nRegs = (int)stack->closure->proto->MaxStackSize;
+
 			RunLuaClosure();
+			PopLuaStack();
+
+			panic_cond(!stack->closure || stack->closure->cFunc || stack->top == stack->closure->proto->MaxStackSize,
+				"return values must locate on MaxStackSize of current call frame");
+
+			if (nResults != 0)
+			{
+				// Pop the return values from the newStack
+				LuaValueArray results = newStack->PopN(newStack->top - nRegs);
+				stack->Check((int)results.size());
+				// nResults not "(int)results.size()" for some ticky usage
+				stack->PushN(results, nResults);
+			}
+		}
 		else
-			stack->closure->cFunc(this);
+		{
+			int r = stack->closure->cFunc(this);
+			PopLuaStack();
+
+			if (nResults != 0)
+			{
+				LuaValueArray results = stack->PopN(r);
+				newStack->Check((int)results.size());
+				stack->PushN(results, nResults);
+			}
+		}
 	}
 }
 
 int LuaState::Resume(LuaState* fromState, int nArgs)
 {
 	LuaStackPtr caller = stack;
+	// TODO
 	coStatus = _ProtectedRun(&LuaState::_Resume, nArgs, -1);
 	return coStatus;
 }

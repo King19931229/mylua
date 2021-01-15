@@ -736,7 +736,9 @@ int CoResume(LuaState* ls)
 	}
 }
 
-#undef Yield
+#ifdef Yield
+#	undef Yield
+#endif
 
 int CoYield(LuaState* ls)
 {
