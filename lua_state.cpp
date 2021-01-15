@@ -800,13 +800,13 @@ void LuaState::CallLuaClosure(int nArgs, int nResults, ClosurePtr c)
 	// nArgs(which is all arguments) contains nParams(which is non varargs arguments)
 	LuaValueArray funcAndArgs = stack->PopN(nArgs + 1);
 	// Push the non varargs arguments
-	newStack->PushN(Slice(funcAndArgs, 1, funcAndArgs.size()), nParams);
+	newStack->PushN(Slice(funcAndArgs, 1, (int)funcAndArgs.size()), nParams);
 	panic_cond(nRegs >= nParams, "nRegs is less than nParams");
 	newStack->top = nRegs;
 	if (nArgs > nParams && isVararg)
 	{
 		// Assign the varargs arguments
-		newStack->varargs = Slice(funcAndArgs, nParams + 1, funcAndArgs.size());
+		newStack->varargs = Slice(funcAndArgs, nParams + 1, (int)funcAndArgs.size());
 	}
 
 	PushLuaStack(newStack);
@@ -1097,7 +1097,7 @@ int LuaState::RegisterCount() const { return stack->closure->proto->MaxStackSize
 void LuaState::LoadVararg(int n)
 {
 	if(n < 0)
-		n = stack->varargs.size();
+		n = (int)stack->varargs.size();
 	stack->Check(n);
 	stack->PushN(stack->varargs, n);
 }

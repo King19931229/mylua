@@ -403,7 +403,7 @@ String Lexer::ScanLongString()
 	str = chunk.substr(start, end - start);
 	str = ReplaceLine(str);
 
-	line += Count(str, '\n');
+	line += (int)Count(str, '\n');
 
 	if(str.length() > 0 && str[0] == '\n')
 		str = str.substr(1);
@@ -463,7 +463,7 @@ String Lexer::ScanShortString()
 
 	str = chunk.substr(beg, end - beg);
 	str = ReplaceLine(str);
-	line += Count(str, '\n');
+	line += (int)Count(str, '\n');
 	str = Escape(str);
 
 	return str;

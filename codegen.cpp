@@ -6,7 +6,7 @@ int FuncInfo::IndexOfConstant(const LuaValue& k)
 	if(it != constants.end())
 		return it->second;
 
-	int idx = constants.size();
+	int idx = (int)constants.size();
 	constants.insert({k, idx});
 	return idx;
 }

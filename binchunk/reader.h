@@ -75,7 +75,11 @@ struct Reader
 	size_t ReadSizeT()
 	{
 		size_t num = 0;
+#ifdef LUA_X64
+		static_assert(sizeof(size_t) == 8, "size check");
+#else
 		static_assert(sizeof(size_t) == 4, "size check");
+#endif
 		_ReadBytes(sizeof(size_t), (Byte*)&num, true);
 		return num;
 	}

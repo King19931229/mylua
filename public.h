@@ -18,6 +18,20 @@ using String = std::string;
 using ByteArray = std::vector<Byte>;
 using StringArray = std::vector<String>;
 
+#ifdef _WIN32
+#	ifdef _WIN64
+#		define LUA_X64
+#	else
+#		define LUA_X86
+#endif
+#else
+#	ifdef __x86_64__
+#		define LUA_X64
+#	else
+#		define LUA_X86
+#endif
+#endif
+
 struct LuaTable;
 using LuaTablePtr = std::shared_ptr<LuaTable>;
 
@@ -300,8 +314,8 @@ inline int Fb2int (int x)
 template<typename Container>
 Container Slice(Container& c, int beg, int end)
 {
-	beg = beg > 0 ? beg : c.size() + beg;
-	end = end > 0 ? end : c.size() + end;
+	beg = beg > 0 ? beg : (int)c.size() + beg;
+	end = end > 0 ? end : (int)c.size() + end;
 	// invalid bound
 	if(beg < 0 || end < 0 || beg > end || end > (int)c.size())
 	{

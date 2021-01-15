@@ -116,11 +116,11 @@ struct Prototype
 		if(IsVararg)
 			varargFlag += "+";
 		printf("\n%s <%s:%d,%d> (%d instructions)\n", funcType.c_str(), Source.c_str(),
-			LineDefined, LastLineDefined, Code.size());
+			LineDefined, LastLineDefined, (int)Code.size());
 		printf("%d%s parmas, %d slots, %d upvalues, ", NumParams, varargFlag.c_str(),
-			MaxStackSize, UpvalueNames.size());
-		printf("%d locals, %d constants, %d functions\n", LocVars.size(), Constants.size(), 
-		Protos.size());
+			MaxStackSize, (int)UpvalueNames.size());
+		printf("%d locals, %d constants, %d functions\n", (int)LocVars.size(), (int)Constants.size(),
+			(int)Protos.size());
 	}
 
 	static void PrintOperands(const Instruction& i)
@@ -190,7 +190,7 @@ struct Prototype
 			if(LineInfo.size() > 0)
 				line = Format::FormatString("%d", LineInfo[pc]);
 			Instruction i{c};
-			printf("\t%d\t[%s]\t%s \t", pc + 1, line.c_str(), i.OpName().c_str());
+			printf("\t%d\t[%s]\t%s \t", (int)pc + 1, line.c_str(), i.OpName().c_str());
 			PrintOperands(i);
 			printf("\n");
 		}
@@ -225,24 +225,24 @@ struct Prototype
 
 	void PrintDetail() const
 	{
-		printf("constants (%d):\n", Constants.size());
+		printf("constants (%d):\n", (int)Constants.size());
 		for(size_t i = 0; i < Constants.size(); ++i)
 		{
 			const Constant& k = Constants[i];
-			printf("\t%d\t%s\n", i + 1, ConstantToString(k).c_str());
+			printf("\t%d\t%s\n", (int)i + 1, ConstantToString(k).c_str());
 		}
-		printf("locals (%d):\n", LocVars.size());
+		printf("locals (%d):\n", (int)LocVars.size());
 		for(size_t i = 0; i < LocVars.size(); ++i)
 		{
 			const LocVar& locVar = LocVars[i];
-			printf("\t%d\t%s\t%d\t%d\n", i, locVar.VarName.c_str(),
+			printf("\t%d\t%s\t%d\t%d\n", (int)i, locVar.VarName.c_str(),
 				locVar.StartPC + 1, locVar.EndPC + 1);
 		}
-		printf("upvalues (%d):\n", Upvalues.size());
+		printf("upvalues (%d):\n", (int)Upvalues.size());
 		for(size_t i = 0; i < Upvalues.size(); ++i)
 		{
 			const Upvalue& upval = Upvalues[i];
-			printf("\t%d\t%s\t%d\t%d", i, UpvalName(i).c_str(), upval.Instack, upval.Idx);
+			printf("\t%d\t%s\t%d\t%d", (int)i, UpvalName(i).c_str(), upval.Instack, upval.Idx);
 		}
 	}
 
