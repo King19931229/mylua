@@ -127,8 +127,14 @@ struct __call_insts__
 		int b = std::get<1>(ab_);
 		int c = 0;
 
+		/*
 		int nArgs = _pushFuncAndArgs(a, b, vm);
 		vm->Call(nArgs, c - 1);
+		_popResults(a, c, vm);
+		*/
+
+		panic_cond(b >= 1, "b must >= 1");
+		vm->TailCall(a, b - 1);
 		_popResults(a, c, vm);
 	}
 

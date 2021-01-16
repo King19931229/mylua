@@ -901,6 +901,91 @@ void LuaState::Call(int nArgs, int nResults)
 	}
 }
 
+void LuaState::TailCall(int idx, int nArgs)
+{
+	LuaValue val = stack->Get(idx);
+	LuaValueArray args;
+	LuaValueArray results;
+	if (!val.IsClosure())
+	{
+		LuaValue mf = ::GetMetafield(val, "__call", this);
+		if (mf != LuaValue::Nil)
+		{
+			if (mf.IsClosure())
+			{
+				args.push_back(std::move(val));
+				val = mf;
+			}
+		}
+	}
+
+	if (val.IsClosure())
+	{
+		int prevTop = GetTop();
+		int prevPc = stack->pc;
+		ClosurePtr prevClosure = stack->closure;
+		std::unordered_map<int, UpValue> prevOpenuvs = std::move(stack->openuvs);
+		LuaValueArray prevVarags = std::move(stack->varargs);
+
+		for (int i = idx + 1; i < idx + 1 + nArgs; ++i)
+		{
+			args.push_back(stack->Get(i));
+		}
+
+		ClosurePtr c = val.closure;
+
+		stack->top = 0;
+
+		if (c->proto)
+		{
+			int nRegs = c->proto->MaxStackSize;
+			CheckStack(nRegs);
+
+			for (int i = 0; i < c->proto->NumParams; ++i)
+				stack->Push(args[i]);
+
+			for (int i = c->proto->NumParams; i < (int)args.size(); ++i)
+				stack->varargs.push_back(args[i]);
+
+			SetTop(nRegs);
+			stack->pc = 0;
+			stack->closure = c;
+			RunLuaClosure();
+
+			results = stack->PopN(stack->top - nRegs);
+		}
+		else
+		{
+			int nRegs = c->proto->NumParams + LUA_MINSTACK;
+			CheckStack(nRegs);
+
+			for (int i = 0; i < c->proto->NumParams; ++i)
+				stack->Push(args[i]);
+
+			for (int i = c->proto->NumParams; i < (int)args.size(); ++i)
+				stack->varargs.push_back(args[i]);
+
+			SetTop(nRegs);
+			stack->pc = 0;
+			stack->closure = c;
+			int r = c->cFunc(this);
+			results = stack->PopN(r);
+		}
+
+		SetTop(prevTop);
+		stack->pc = prevPc;
+		stack->closure = prevClosure;
+		stack->openuvs = std::move(prevOpenuvs);
+		stack->varargs = std::move(prevVarags);
+
+		stack->PushN(results, (int)results.size());
+	}
+	else
+	{
+		panic("not a function");
+	}
+}
+
 void LuaState::PushCClosure(CFunction c, int n)
 {
 	ClosurePtr closure = NewCClosure(c, n);

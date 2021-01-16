@@ -115,6 +115,7 @@ struct LuaState
 	void CallLuaClosure(int nArgs, int nResults, ClosurePtr c);
 	void CallCClosure(int nArgs, int nResults, ClosurePtr c);
 	void Call(int nArgs, int nResults);
+	void TailCall(int idx, int nArgs);
 	void PushCClosure(CFunction c, int n);
 	void PushCFunction(CFunction c);
 	bool IsCFunction(int idx);
